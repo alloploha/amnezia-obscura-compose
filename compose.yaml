@@ -34,5 +34,5 @@ services:
         ipv4_address: 172.30.153.53
         ipv6_address: fd30:153::53
       amnezia-dns:
-        ipv4_address: 172.27.172.153
+        ipv4_address: 172.29.172.153
 
