@@ -1,0 +1,36 @@
+name: obscura
+
+networks:
+  dns:
+    name: obscura-dns
+    driver: bridge
+    enable_ipv6: 'true'
+    ipam:
+      config:
+        - subnet: 172.30.153.0/26
+        - subnet: fd30:153::/64
+  amnezia-dns:
+    name: amnezia-dns
+    external: 'true'
+
+volumes:
+  awg-data:
+    driver: local
+  xray-data:
+    driver: local
+
+services:
+
+  dns:
+    build: ./dns
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 3
+    networks:
+      dns:
+        ipv4_address: 172.30.153.53
+        ipv6_address: fd30:153::53
+
