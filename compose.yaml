@@ -10,7 +10,7 @@ networks:
         - subnet: 172.30.153.0/26
         - subnet: fd30:153::/64
   amnezia-dns:
-    name: amnezia-dns
+    name: amnezia-dns-net
     external: 'true'
 
 volumes:
