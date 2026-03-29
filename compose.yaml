@@ -16,6 +16,8 @@ networks:
 volumes:
   awg-data:
     driver: local
+  socks5proxy-data:
+    driver: local
   xray-data:
     driver: local
 
@@ -36,3 +38,37 @@ services:
       amnezia-dns:
         ipv4_address: 172.29.172.153
 
+  socks5proxy:
+    profiles: ["socks5proxy"]
+    build: ./socks5proxy
+    restart: unless-stopped
+    depends_on:
+      - dns
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 5
+    environment:
+      SOCKS5_ALLOW_ANONYMOUS: ${SOCKS5_ALLOW_ANONYMOUS:-false}
+      # Optional path inside the container to an Amnezia-managed 3proxy.cfg.
+      # Example when using the optional read-only compatibility mount below:
+      # SOCKS5_COMPAT_CONFIG=/compat/3proxy.cfg
+      SOCKS5_COMPAT_CONFIG: ${SOCKS5_COMPAT_CONFIG:-}
+      SOCKS5_DNS_SERVERS: ${SOCKS5_DNS_SERVERS:-172.30.153.53,fd30:153::53}
+      SOCKS5_LISTEN_ADDR: ${SOCKS5_LISTEN_ADDR:-[::]}
+      SOCKS5_PORT_DEFAULT: ${SOCKS5_PORT_DEFAULT:-38080}
+      SOCKS5_PUBLISHED_PORT: ${SOCKS5_PUBLISHED_PORT:-38080}
+      SOCKS5_PUBLISH_MODE: bridge
+      SOCKS5_STATE_DIR: ${SOCKS5_STATE_DIR:-/var/lib/obscura/socks5proxy}
+    ports:
+      - "${SOCKS5_PUBLISHED_PORT:-38080}:${SOCKS5_PUBLISHED_PORT:-38080}/tcp"
+    networks:
+      - dns
+    volumes:
+      - socks5proxy-data:${SOCKS5_STATE_DIR:-/var/lib/obscura/socks5proxy}
+      # Optional compatibility mount:
+      # externalize the Amnezia SOCKS5 config directory and mount it read-only here,
+      # then set SOCKS5_COMPAT_CONFIG=/compat/3proxy.cfg
+      # Example host path:
+      # - /srv/amnezia/socks5proxy/conf:/compat:ro

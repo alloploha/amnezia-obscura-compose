@@ -37,12 +37,15 @@ The long-term target is a full server stack where DNS and VPN services are manag
 
 Current implementation status:
 - implemented: private DNS resolver based on Unbound
+- implemented as an opt-in profile: Compose-native SOCKS5 proxy module based on 3proxy
 - partially prepared: Compose project layout, helper scripts, reserved volumes for future protocol services
 - not yet implemented as Compose services: WireGuard, AWG, Xray, OpenVPN, IPsec, and other VPN containers
 
 As of the current repo state:
-- `compose.yaml` defines only one active service: `dns`
+- `compose.yaml` defines one default service: `dns`
+- `compose.yaml` also contains an opt-in `socks5proxy` profile-backed service
 - the top-level `dns/` directory contains the actual service Dockerfile and Unbound configuration
+- the top-level `socks5proxy/` directory contains the 3proxy-based SOCKS5 module
 - `scripts/` contains helper scripts for Docker Compose plugin installation and Docker IPv6 enablement
 - `amnezia-client/` is an upstream Git submodule used as reference/source material for protocol container scripts and compatibility work
 
@@ -86,6 +89,10 @@ Do not describe the VPN stack as implemented unless the repo actually contains w
 - Side-by-side operation:
   Avoid assumptions that force users to abandon vanilla Amnezia deployments.
 
+- Dual-stack by default:
+  Current and future modules should support both IPv4 and IPv6 whenever the Docker daemon and Compose networks have IPv6 enabled.
+  Do not hardcode IPv4-only listener addresses or upstream resolver addresses unless there is a protocol-specific reason.
+
 ## Current Architecture
 
 ### Top-Level Compose Model
@@ -95,7 +102,9 @@ Top-level file:
 
 Current Compose resources:
 - service: `dns`
+- opt-in profile service: `socks5proxy`
 - volumes reserved for future use: `awg-data`, `xray-data`
+- service data volume: `socks5proxy-data`
 - networks:
   - internal network `obscura-dns`
   - optional external compatibility network `amnezia-dns-net`
@@ -117,6 +126,51 @@ Behavior:
 - Emercoin-related stub zones
 - Docker-friendly stdout/stderr logging
 - no host port exposure by default
+
+### SOCKS5 Proxy
+
+Implemented module:
+- 3proxy-based SOCKS5 service
+
+Files:
+- `socks5proxy/Dockerfile`
+- `socks5proxy/3proxy.base.cfg`
+- `socks5proxy/entrypoint.sh`
+
+Current design:
+- static baseline config is baked into the image
+- runtime entrypoint renders the effective `3proxy.cfg`
+- dynamic state can come from an Obscura-managed state directory or an Amnezia-compatible mounted config file
+- default state volume in Compose: `socks5proxy-data`
+- default state path in the container: `/var/lib/obscura/socks5proxy`
+
+Current runtime behavior:
+- the image keeps the upstream 3proxy startup path instead of replacing it with a dummy long-running shell
+- the generated config is written to `/usr/local/3proxy/conf/3proxy.cfg`
+- the base 3proxy image then starts with `/etc/3proxy/3proxy.cfg`, preserving the upstream safe-chroot model
+- logs are configured for stdout rather than an internal log file
+- DNS resolution is rendered dynamically and defaults to Obscura's internal DNS service over both IPv4 and IPv6 (`172.30.153.53`, `fd30:153::53`) rather than hardcoded public resolvers
+- the default listen address is `[::]` so the service can accept both IPv4 and IPv6 connections when the network stack is configured for dual-stack operation
+- if no users are present and anonymous mode is not explicitly allowed, the entrypoint bootstraps a managed single-user config into the state directory
+
+Compatibility model:
+- Obscura-managed mode:
+  - use `socks5proxy-data` or a bind-mounted host directory as the canonical state source
+  - dynamic files can include `port`, `users.list`, `username`, `password`, `auth_type`, and `extra.cfg`
+
+- Amnezia-compatible mode:
+  - mount an Amnezia-managed SOCKS5 config file and point `SOCKS5_COMPAT_CONFIG` to it
+  - the entrypoint extracts the effective port, auth mode, and users from that config and renders the Obscura config from those values
+  - this is intended to preserve compatibility with current Amnezia config management for the existing single-user model
+
+Multi-user support:
+- supported in Obscura-managed mode through `users.list`
+- not part of the current Amnezia UI model, which manages only one username/password pair
+
+Important limitation:
+- in Docker bridge mode, published host ports are static at container creation time
+- therefore, if an external Amnezia-managed config changes the SOCKS5 listen port, Obscura cannot follow that host-port change automatically without recreating the service or switching to host networking
+- for full compatibility with live Amnezia-managed port changes, host networking is the cleanest option on Linux
 
 ### Networking
 
@@ -151,6 +205,8 @@ For dual-stack behavior:
 - Docker daemon must have IPv6 enabled
 - Compose network must have IPv6 enabled
 - Unbound is configured to bind on `::0`
+- New services should bind on dual-stack listener addresses where the underlying software supports it
+- New services should prefer Obscura's internal dual-stack DNS endpoints instead of bypassing them with hardcoded public resolvers
 
 Helper script:
 - `scripts/enable-docker-ipv6.sh`
@@ -216,6 +272,9 @@ Top-level areas:
 - `dns/`
   Real implemented DNS service.
 
+- `socks5proxy/`
+  Compose-native SOCKS5 module with a baked baseline config and a runtime config renderer.
+
 - `scripts/`
   Host-side helper scripts for setup tasks.
 
@@ -227,8 +286,12 @@ Important current files:
 - `dns/Dockerfile`
 - `dns/unbound.conf`
 - `dns/forward-records.conf`
+- `socks5proxy/Dockerfile`
+- `socks5proxy/3proxy.base.cfg`
+- `socks5proxy/entrypoint.sh`
 - `scripts/enable-docker-ipv6.sh`
 - `scripts/install-docker-compose-plugin.sh`
+- `scripts/externalize-amnezia-socks5proxy.sh`
 
 Important upstream reference files:
 - `amnezia-client/client/core/controllers/serverController.cpp`
@@ -242,11 +305,17 @@ Important upstream reference files:
 - The default Compose file currently references the external network `amnezia-dns-net`.
   If that network does not exist, `docker compose up` fails unless the operator removes that network block or creates the network.
 - `compose.yaml` already reserves some future volumes, but they are not yet attached to working services.
+- The `socks5proxy` module exists as an opt-in service, but it still needs live validation against a real Amnezia-managed SOCKS5 deployment.
 - The current Unbound config includes `a-records.conf` and `srv-records.conf`.
   Those files are not present in this repo's `dns/` directory.
   If the base image behavior changes, this assumption may need to be revisited.
 - There is not yet a documented persistence model for protocol state equivalent to upstream `/opt/amnezia/...`.
 - There is not yet a compatibility layer for importing existing Amnezia-managed protocol data.
+- The SOCKS5 module currently has two state models:
+  - structured Obscura-managed state in a volume or bind mount
+  - parsed compatibility input from an Amnezia-generated `3proxy.cfg`
+  This split is intentional for now but may be worth unifying later.
+- Full automatic compatibility with Amnezia-driven SOCKS5 port changes is not possible in normal bridge mode because Compose port publishing is static.
 
 ## Recommended Implementation Direction
 
@@ -265,6 +334,14 @@ Suggested early protocol candidates:
 - Xray
 
 They already have strong upstream script coverage and align with the repo's reserved volumes and stated goals.
+
+Near-term service work now includes:
+- validate the new `socks5proxy` module against a live Amnezia-managed SOCKS5 container
+- decide whether the preferred compatibility path should be:
+  - bridge mode + explicit recreate on port changes
+  - or Linux host networking for seamless port compatibility
+- document the recommended host bind-mount layout for service state under `/srv/amnezia/...`
+- use the existing one-shot SOCKS5 migration helper when converting a live Amnezia `amnezia-socks5proxy` container to host-backed `conf/` and `logs/`
 
 ## Documentation Rules For Future Agents
 
