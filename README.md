@@ -262,12 +262,12 @@ If you enable the `socks5proxy` profile, you can validate host-side ingress and 
 sudo bash scripts/test-socks5proxy-host.sh
 ```
 
-The script discovers the running `socks5proxy` container, extracts the effective published port and first configured proxy credential from Docker, then tests:
-- loopback ingress
-- host IPv4 ingress
-- host IPv6 ingress
-- public IPv4 egress
-- public IPv6 egress
+The script discovers the running `socks5proxy` container, extracts the effective published port and first configured proxy credential from Docker, then runs three layers of checks:
+- raw SOCKS5 auth over loopback, host IPv4, and host IPv6
+- raw SOCKS5 CONNECT to public IPv4 and IPv6 literals
+- HTTP-over-SOCKS requests to public IPv4 and IPv6 echo services
+
+This split helps distinguish proxy reachability/auth problems from upstream egress problems.
 
 ### Check Docker Networks
 

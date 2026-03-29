@@ -162,6 +162,7 @@ Current runtime behavior:
 - in Obscura mode the container always listens on `1080/tcp`; host publishing is the only port customization point
 - in Amnezia mode the container still listens on `1080/tcp`; only proxy credentials are imported from the externalized Amnezia config
 - outbound address-family selection is explicit via `SOCKS5_RESOLVE_MODE`; default is `prefer_ipv6`, which renders 3proxy's `-64` flag
+- the host-side validation helper `scripts/test-socks5proxy-host.sh` now separates raw SOCKS auth checks, raw SOCKS CONNECT checks, and HTTP-over-SOCKS checks so ingress/auth failures are not conflated with upstream egress failures
 - live validation confirmed that `prefer_ipv6` causes 3proxy to use IPv6 upstream addresses when AAAA records are available and container IPv6 egress is healthy
 - if no users are present and anonymous mode is not explicitly allowed, the Obscura-mode entrypoint bootstraps a managed single-user config into the state directory
 - the service now has a local Docker health check that verifies the rendered config exists, PID 1 is alive, and the expected TCP listener is present in `/proc/net/tcp` or `/proc/net/tcp6`

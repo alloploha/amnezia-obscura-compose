@@ -5,6 +5,8 @@ DEFAULT_PUBLIC_IPV4_URL="https://api.ipify.org?format=text"
 DEFAULT_PUBLIC_IPV6_URL="https://api6.ipify.org?format=text"
 DEFAULT_SERVICE_LABEL="com.docker.compose.service=socks5proxy"
 DEFAULT_LOOPBACK_PROXY_HOST="127.0.0.1"
+DEFAULT_CONNECT_TEST_IPV4="1.1.1.1"
+DEFAULT_CONNECT_TEST_IPV6="2606:4700:4700::1111"
 
 CONTAINER_NAME=""
 PUBLIC_IPV4_URL="$DEFAULT_PUBLIC_IPV4_URL"
@@ -16,6 +18,7 @@ FAIL_COUNT=0
 SKIP_COUNT=0
 
 TMPDIR=""
+SOCKS_AUTH_REQUIRED=""
 
 usage() {
     cat <<'EOF'
@@ -25,11 +28,9 @@ Host-side validation for the running Obscura SOCKS5 proxy.
 
 The script discovers the running socks5proxy container via Docker, extracts the
 effective published port and first configured credential, then runs:
-  - loopback ingress test via 127.0.0.1
-  - IPv4 ingress test via the host primary IPv4
-  - IPv6 ingress test via the host primary IPv6 or ::1
-  - public IPv4 egress test
-  - public IPv6 egress test
+  - raw SOCKS5 auth tests over loopback, host IPv4, and host IPv6
+  - raw SOCKS5 CONNECT tests to public IPv4 and IPv6 literals
+  - HTTP-over-SOCKS tests against public IPv4 and IPv6 echo services
 
 Options:
   --container <name>         Explicit container name
@@ -182,6 +183,11 @@ discover_auth() {
         printf 'ERROR: auth mode is %s but no proxy user/password could be extracted\n' "$PROXY_AUTH_MODE" >&2
         exit 1
     fi
+
+    SOCKS_AUTH_REQUIRED="false"
+    if [ "$PROXY_AUTH_MODE" != "none" ]; then
+        SOCKS_AUTH_REQUIRED="true"
+    fi
 }
 
 discover_host_ips() {
@@ -205,6 +211,151 @@ format_proxy_host() {
             printf '%s' "$1"
             ;;
     esac
+}
+
+hex_byte() {
+    printf '\\x%02x' "$1"
+}
+
+build_socks_greeting() {
+    if [ "$SOCKS_AUTH_REQUIRED" = "true" ]; then
+        printf '\x05\x01\x02'
+    else
+        printf '\x05\x01\x00'
+    fi
+}
+
+build_socks_auth_packet() {
+    [ "$SOCKS_AUTH_REQUIRED" = "true" ] || return 0
+
+    printf '\x01'
+    printf '%b' "$(hex_byte "${#PROXY_USERNAME}")"
+    printf '%s' "$PROXY_USERNAME"
+    printf '%b' "$(hex_byte "${#PROXY_PASSWORD}")"
+    printf '%s' "$PROXY_PASSWORD"
+}
+
+build_socks_connect_ipv4_packet() {
+    printf '\x05\x01\x00\x01\x01\x01\x01\x01\x01\xbb'
+}
+
+build_socks_connect_ipv6_packet() {
+    printf '\x05\x01\x00\x04'
+    printf '\x26\x06\x47\x00\x47\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+    printf '\x01\xbb'
+}
+
+normalize_hex_stream() {
+    tr '\n' ' ' | tr -s ' ' ' ' | sed 's/^ //; s/ $//'
+}
+
+run_socks_exchange() {
+    local proxy_host="$1"
+    local mode="$2"
+
+    {
+        build_socks_greeting
+        if [ "$SOCKS_AUTH_REQUIRED" = "true" ]; then
+            build_socks_auth_packet
+        fi
+        case "$mode" in
+            auth_only)
+                ;;
+            connect_ipv4)
+                build_socks_connect_ipv4_packet
+                ;;
+            connect_ipv6)
+                build_socks_connect_ipv6_packet
+                ;;
+            *)
+                printf 'ERROR: unknown SOCKS exchange mode: %s\n' "$mode" >&2
+                return 1
+                ;;
+        esac
+    } | nc -w "$TIMEOUT" "$proxy_host" "$PROXY_PORT" | od -An -tx1 -v | normalize_hex_stream
+}
+
+validate_socks_auth_hex() {
+    local hex_stream="$1"
+
+    case "$SOCKS_AUTH_REQUIRED" in
+        true)
+            case "$hex_stream" in
+                "05 02 01 00"|\
+                "05 02 01 00 "*)
+                    return 0
+                    ;;
+                *)
+                    printf 'unexpected SOCKS auth exchange: %s\n' "$hex_stream" >&2
+                    return 1
+                    ;;
+            esac
+            ;;
+        false)
+            case "$hex_stream" in
+                "05 00"|\
+                "05 00 "*)
+                    return 0
+                    ;;
+                *)
+                    printf 'unexpected SOCKS auth exchange: %s\n' "$hex_stream" >&2
+                    return 1
+                    ;;
+            esac
+            ;;
+        *)
+            printf 'ERROR: invalid SOCKS auth state: %s\n' "$SOCKS_AUTH_REQUIRED" >&2
+            return 1
+            ;;
+    esac
+}
+
+validate_socks_connect_hex() {
+    local hex_stream="$1"
+    local success_prefix=""
+
+    case "$SOCKS_AUTH_REQUIRED" in
+        true)
+            success_prefix="05 02 01 00 05 00"
+            ;;
+        false)
+            success_prefix="05 00 05 00"
+            ;;
+        *)
+            printf 'ERROR: invalid SOCKS auth state: %s\n' "$SOCKS_AUTH_REQUIRED" >&2
+            return 1
+            ;;
+    esac
+
+    case "$hex_stream" in
+        "$success_prefix"|\
+        "$success_prefix "*)
+            return 0
+            ;;
+        *)
+            printf 'unexpected SOCKS CONNECT exchange: %s\n' "$hex_stream" >&2
+            return 1
+            ;;
+    esac
+}
+
+run_socks_auth_test() {
+    local proxy_host="$1"
+    local response
+
+    response="$(run_socks_exchange "$proxy_host" auth_only)"
+    validate_socks_auth_hex "$response"
+    printf '%s' "$response"
+}
+
+run_socks_connect_test() {
+    local proxy_host="$1"
+    local mode="$2"
+    local response
+
+    response="$(run_socks_exchange "$proxy_host" "$mode")"
+    validate_socks_connect_hex "$response"
+    printf '%s' "$response"
 }
 
 curl_via_proxy() {
@@ -266,6 +417,8 @@ main() {
     require_cmd docker
     require_cmd curl
     require_cmd ip
+    require_cmd nc
+    require_cmd od
     discover_container
     discover_port
     discover_auth
@@ -283,31 +436,39 @@ main() {
     log ""
 
     run_test \
-        "Loopback ingress via 127.0.0.1" \
-        "curl_via_proxy '$DEFAULT_LOOPBACK_PROXY_HOST' '$PUBLIC_IPV4_URL' -4"
+        "Loopback SOCKS auth via 127.0.0.1" \
+        "run_socks_auth_test '$DEFAULT_LOOPBACK_PROXY_HOST'"
 
     run_skip_or_test \
         "$HOST_IPV4" \
-        "Primary host IPv4 is unavailable; skipping IPv4 ingress test" \
-        "IPv4 ingress via $HOST_IPV4" \
-        "curl_via_proxy '$HOST_IPV4' '$PUBLIC_IPV4_URL' -4"
+        "Primary host IPv4 is unavailable; skipping IPv4 SOCKS auth test" \
+        "IPv4 SOCKS auth via $HOST_IPV4" \
+        "run_socks_auth_test '$HOST_IPV4'"
 
     run_test \
-        "IPv6 ingress via ::1" \
-        "curl_via_proxy '::1' '$PUBLIC_IPV4_URL' -4"
+        "IPv6 SOCKS auth via ::1" \
+        "run_socks_auth_test '::1'"
 
     run_skip_or_test \
         "$HOST_IPV6" \
-        "Primary host IPv6 is unavailable; skipping global IPv6 ingress test" \
-        "IPv6 ingress via $HOST_IPV6" \
-        "curl_via_proxy '$HOST_IPV6' '$PUBLIC_IPV4_URL' -4"
+        "Primary host IPv6 is unavailable; skipping host IPv6 SOCKS auth test" \
+        "IPv6 SOCKS auth via $HOST_IPV6" \
+        "run_socks_auth_test '$HOST_IPV6'"
 
     run_test \
-        "Public IPv4 egress" \
+        "SOCKS IPv4 CONNECT via 127.0.0.1 to $DEFAULT_CONNECT_TEST_IPV4:443" \
+        "run_socks_connect_test '$DEFAULT_LOOPBACK_PROXY_HOST' connect_ipv4"
+
+    run_test \
+        "SOCKS IPv6 CONNECT via 127.0.0.1 to [$DEFAULT_CONNECT_TEST_IPV6]:443" \
+        "run_socks_connect_test '$DEFAULT_LOOPBACK_PROXY_HOST' connect_ipv6"
+
+    run_test \
+        "Public IPv4 HTTP egress via 127.0.0.1" \
         "curl_via_proxy '$DEFAULT_LOOPBACK_PROXY_HOST' '$PUBLIC_IPV4_URL' -4"
 
     run_test \
-        "Public IPv6 egress" \
+        "Public IPv6 HTTP egress via 127.0.0.1" \
         "curl_via_proxy '$DEFAULT_LOOPBACK_PROXY_HOST' '$PUBLIC_IPV6_URL' -6"
 
     log ""
