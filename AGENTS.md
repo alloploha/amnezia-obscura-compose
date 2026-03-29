@@ -154,6 +154,7 @@ Current runtime behavior:
 - outbound address-family selection is explicit via `SOCKS5_RESOLVE_MODE`; default is `prefer_ipv6`, which renders 3proxy's `-64` flag
 - live validation confirmed that `prefer_ipv6` causes 3proxy to use IPv6 upstream addresses when AAAA records are available and container IPv6 egress is healthy
 - if no users are present and anonymous mode is not explicitly allowed, the entrypoint bootstraps a managed single-user config into the state directory
+- the service now has a local Docker health check that verifies the rendered config exists, PID 1 is alive, and the expected TCP listener is present in `/proc/net/tcp` or `/proc/net/tcp6`
 
 Compatibility model:
 - Obscura-managed mode:

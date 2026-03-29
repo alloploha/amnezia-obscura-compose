@@ -2,8 +2,9 @@ FROM 3proxy/3proxy:latest
 
 COPY 3proxy.base.cfg /opt/obscura/3proxy.base.cfg
 COPY entrypoint.sh /opt/obscura/entrypoint.sh
+COPY healthcheck.sh /opt/obscura/healthcheck.sh
 
-RUN chmod 0755 /opt/obscura/entrypoint.sh \
+RUN chmod 0755 /opt/obscura/entrypoint.sh /opt/obscura/healthcheck.sh \
     && mkdir -p /var/lib/obscura/socks5proxy \
     && chown 65535:65535 /var/lib/obscura/socks5proxy
 

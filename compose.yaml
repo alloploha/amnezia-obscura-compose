@@ -49,6 +49,12 @@ services:
       options:
         max-size: 10m
         max-file: 5
+    healthcheck:
+      test: ["CMD", "/opt/obscura/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     environment:
       SOCKS5_ALLOW_ANONYMOUS: ${SOCKS5_ALLOW_ANONYMOUS:-false}
       # Optional path inside the container to an Amnezia-managed 3proxy.cfg.
