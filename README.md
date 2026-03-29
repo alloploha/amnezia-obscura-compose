@@ -30,6 +30,7 @@ Obscura aims to provide a cleaner operator experience:
 Today this repo provides a private DNS resolver for VPN-centric environments with:
 - Unbound
 - DNS-over-TLS upstream resolution
+- dual-stack upstream forwarding over IPv4 and IPv6
 - DNSSEC-aware hardening
 - Emercoin stub zones
 - Docker network integration
@@ -46,7 +47,7 @@ The broader VPN stack is the intended direction of the project, not the current 
 - Unbound
 - caching
 - DNSSEC and resolver hardening
-- DoT forwarding to public upstream resolvers
+- DoT forwarding to public upstream resolvers over IPv4 and IPv6
 - stub zones for Emercoin domains
 
 Configuration lives in:

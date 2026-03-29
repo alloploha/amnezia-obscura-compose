@@ -124,6 +124,7 @@ Behavior:
 - caching resolver
 - DNSSEC validation and hardening
 - DNS-over-TLS forwarding
+- dual-stack public upstream forwarding over IPv4 and IPv6
 - Emercoin-related stub zones
 - Docker-friendly stdout/stderr logging
 - no host port exposure by default
