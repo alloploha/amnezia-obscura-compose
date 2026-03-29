@@ -187,6 +187,7 @@ sudo bash scripts/externalize-amnezia-socks5proxy.sh
 If you do not need Amnezia network compatibility, use the base file only.
 
 If you enable the `socks5proxy` profile in the base file, it listens on internal port `1080` and also publishes `1080` by default.
+If IPv6 egress needs an explicit source bind for 3proxy, set `SOCKS5_EXTERNAL_ADDR` to an address owned by the container, for example `fd30:153::2`.
 
 ## Install And Run
 

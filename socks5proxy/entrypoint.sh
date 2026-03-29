@@ -10,7 +10,8 @@ STATE_DIR=${SOCKS5_STATE_DIR:-/var/lib/obscura/socks5proxy}
 COMPAT_CFG=${SOCKS5_COMPAT_CONFIG:-}
 ALLOW_ANONYMOUS=${SOCKS5_ALLOW_ANONYMOUS:-false}
 DNS_SERVERS=${SOCKS5_DNS_SERVERS:-172.30.153.53,fd30:153::53}
-LISTEN_ADDR=${SOCKS5_LISTEN_ADDR:-[::]}
+LISTEN_ADDR=${SOCKS5_LISTEN_ADDR:-::}
+EXTERNAL_ADDR=${SOCKS5_EXTERNAL_ADDR:-}
 PUBLISHED_PORT=${SOCKS5_PUBLISHED_PORT:-1080}
 PUBLISH_MODE=${SOCKS5_PUBLISH_MODE:-bridge}
 RESOLVE_MODE=${SOCKS5_RESOLVE_MODE:-prefer_ipv6}
@@ -25,7 +26,7 @@ lower() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
 }
 
-normalize_listen_addr() {
+normalize_bind_addr() {
     case "$1" in
         \[*\])
             printf '%s' "${1#\[}" | sed 's/\]$//'
@@ -89,7 +90,10 @@ validate_port() {
 }
 
 mkdir -p "$STATE_DIR" /usr/local/3proxy/conf
-LISTEN_ADDR="$(normalize_listen_addr "$LISTEN_ADDR")"
+LISTEN_ADDR="$(normalize_bind_addr "$LISTEN_ADDR")"
+if [ -n "$EXTERNAL_ADDR" ]; then
+    EXTERNAL_ADDR="$(normalize_bind_addr "$EXTERNAL_ADDR")"
+fi
 
 CONFIG_MODE="obscura"
 PORT=""
@@ -204,8 +208,20 @@ if [ -n "$EXTRA_CFG_SOURCE" ]; then
 fi
 
 RESOLVE_FLAG="$(resolve_mode_flag "$RESOLVE_MODE")"
+SOCKS_FLAGS=""
 if [ -n "$RESOLVE_FLAG" ]; then
-    printf 'socks %s -p%s -i%s\n' "$RESOLVE_FLAG" "$PORT" "$LISTEN_ADDR" >> "$GENERATED_CFG"
+    SOCKS_FLAGS="$RESOLVE_FLAG"
+fi
+if [ -n "$EXTERNAL_ADDR" ]; then
+    if [ -n "$SOCKS_FLAGS" ]; then
+        SOCKS_FLAGS="$SOCKS_FLAGS -e$EXTERNAL_ADDR"
+    else
+        SOCKS_FLAGS="-e$EXTERNAL_ADDR"
+    fi
+fi
+
+if [ -n "$SOCKS_FLAGS" ]; then
+    printf 'socks %s -p%s -i%s\n' "$SOCKS_FLAGS" "$PORT" "$LISTEN_ADDR" >> "$GENERATED_CFG"
 else
     printf 'socks -p%s -i%s\n' "$PORT" "$LISTEN_ADDR" >> "$GENERATED_CFG"
 fi
