@@ -4,6 +4,12 @@ services:
       amnezia-dns:
         ipv4_address: 172.29.172.153
 
+  socks5proxy:
+    environment:
+      SOCKS5_COMPAT_CONFIG: /compat/3proxy.cfg
+    volumes:
+      - /srv/amnezia/socks5proxy/conf:/compat:ro
+
 networks:
   amnezia-dns:
     name: amnezia-dns-net

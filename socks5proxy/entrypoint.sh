@@ -4,19 +4,18 @@ set -eu
 BASE_CFG=/opt/obscura/3proxy.base.cfg
 GENERATED_CFG=/usr/local/3proxy/conf/3proxy.cfg
 GENERATED_EXTRA_CFG=/usr/local/3proxy/conf/extra.cfg
+OBSCURA_INTERNAL_PORT=1080
 
 STATE_DIR=${SOCKS5_STATE_DIR:-/var/lib/obscura/socks5proxy}
 COMPAT_CFG=${SOCKS5_COMPAT_CONFIG:-}
 ALLOW_ANONYMOUS=${SOCKS5_ALLOW_ANONYMOUS:-false}
 DNS_SERVERS=${SOCKS5_DNS_SERVERS:-172.30.153.53,fd30:153::53}
 LISTEN_ADDR=${SOCKS5_LISTEN_ADDR:-[::]}
-PORT_DEFAULT=${SOCKS5_PORT_DEFAULT:-38080}
-PUBLISHED_PORT=${SOCKS5_PUBLISHED_PORT:-38080}
+PUBLISHED_PORT=${SOCKS5_PUBLISHED_PORT:-1080}
 PUBLISH_MODE=${SOCKS5_PUBLISH_MODE:-bridge}
 RESOLVE_MODE=${SOCKS5_RESOLVE_MODE:-prefer_ipv6}
 BOOTSTRAP_USERNAME=${SOCKS5_BOOTSTRAP_USERNAME:-proxy_user}
 BOOTSTRAP_PASSWORD=${SOCKS5_BOOTSTRAP_PASSWORD:-}
-BOOTSTRAP_PORT=${SOCKS5_BOOTSTRAP_PORT:-$PUBLISHED_PORT}
 
 trim() {
     printf '%s' "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
@@ -24,6 +23,17 @@ trim() {
 
 lower() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+normalize_listen_addr() {
+    case "$1" in
+        \[*\])
+            printf '%s' "${1#\[}" | sed 's/\]$//'
+            ;;
+        *)
+            printf '%s' "$1"
+            ;;
+    esac
 }
 
 read_file_trimmed() {
@@ -79,72 +89,70 @@ validate_port() {
 }
 
 mkdir -p "$STATE_DIR" /usr/local/3proxy/conf
+LISTEN_ADDR="$(normalize_listen_addr "$LISTEN_ADDR")"
 
+CONFIG_MODE="obscura"
 PORT=""
 AUTH_LINE=""
 USERS_PAYLOAD=""
 EXTRA_CFG_SOURCE=""
 
-if [ -n "$COMPAT_CFG" ] && [ -f "$COMPAT_CFG" ]; then
-    PORT="$(sed -n 's/.*socks[[:space:]].*-p\([0-9][0-9]*\).*/\1/p' "$COMPAT_CFG" | tail -n 1)"
-    AUTH_LINE="$(awk '$1=="auth"{sub(/^auth[[:space:]]+/,""); auth=$0} END{print auth}' "$COMPAT_CFG")"
+if [ -n "$COMPAT_CFG" ]; then
+    CONFIG_MODE="amnezia_compat"
+
+    if [ ! -f "$COMPAT_CFG" ]; then
+        echo "Configured SOCKS5 compatibility config was not found: $COMPAT_CFG" >&2
+        exit 1
+    fi
+
+    PORT="$OBSCURA_INTERNAL_PORT"
     USERS_PAYLOAD="$(awk '$1=="users"{sub(/^users[[:space:]]+/,""); printf "%s ", $0}' "$COMPAT_CFG" | sed 's/[[:space:]]*$//')"
-
-    if [ -f "$(dirname "$COMPAT_CFG")/extra.cfg" ]; then
-        EXTRA_CFG_SOURCE="$(dirname "$COMPAT_CFG")/extra.cfg"
-    fi
-fi
-
-if [ -z "$PORT" ]; then
-    PORT="$(read_file_trimmed "$STATE_DIR/port")"
-fi
-
-if [ -z "$AUTH_LINE" ]; then
+else
+    PORT="$OBSCURA_INTERNAL_PORT"
     AUTH_LINE="$(read_file_trimmed "$STATE_DIR/auth_type")"
-fi
 
-if [ -z "$USERS_PAYLOAD" ] && [ -f "$STATE_DIR/users.list" ]; then
-    USERS_PAYLOAD="$(awk '
-        /^[[:space:]]*#/ { next }
-        /^[[:space:]]*$/ { next }
-        {
-            line=$0
-            sub(/^[[:space:]]+/, "", line)
-            sub(/[[:space:]]+$/, "", line)
-            if (line ~ /^users[[:space:]]+/) {
-                sub(/^users[[:space:]]+/, "", line)
+    if [ -f "$STATE_DIR/users.list" ]; then
+        USERS_PAYLOAD="$(awk '
+            /^[[:space:]]*#/ { next }
+            /^[[:space:]]*$/ { next }
+            {
+                line=$0
+                sub(/^[[:space:]]+/, "", line)
+                sub(/[[:space:]]+$/, "", line)
+                if (line ~ /^users[[:space:]]+/) {
+                    sub(/^users[[:space:]]+/, "", line)
+                }
+                printf "%s ", line
             }
-            printf "%s ", line
-        }
-    ' "$STATE_DIR/users.list" | sed 's/[[:space:]]*$//')"
-fi
-
-if [ -z "$USERS_PAYLOAD" ]; then
-    USERNAME="$(read_file_trimmed "$STATE_DIR/username")"
-    PASSWORD="$(read_file_trimmed "$STATE_DIR/password")"
-    if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
-        USERS_PAYLOAD="${USERNAME}:CL:${PASSWORD}"
+        ' "$STATE_DIR/users.list" | sed 's/[[:space:]]*$//')"
     fi
-fi
 
-if [ -z "$EXTRA_CFG_SOURCE" ] && [ -f "$STATE_DIR/extra.cfg" ]; then
-    EXTRA_CFG_SOURCE="$STATE_DIR/extra.cfg"
-fi
+    if [ -z "$USERS_PAYLOAD" ]; then
+        USERNAME="$(read_file_trimmed "$STATE_DIR/username")"
+        PASSWORD="$(read_file_trimmed "$STATE_DIR/password")"
+        if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+            USERS_PAYLOAD="${USERNAME}:CL:${PASSWORD}"
+        fi
+    fi
 
-if [ -z "$PORT" ]; then
-    PORT="$PORT_DEFAULT"
+    if [ -f "$STATE_DIR/extra.cfg" ]; then
+        EXTRA_CFG_SOURCE="$STATE_DIR/extra.cfg"
+    fi
 fi
 
 if [ -z "$USERS_PAYLOAD" ] && ! is_true "$ALLOW_ANONYMOUS"; then
+    if [ "$CONFIG_MODE" = "amnezia_compat" ]; then
+        echo "Authentication is enabled but no SOCKS5 users were found in compatibility config." >&2
+        exit 1
+    fi
+
     if [ -z "$BOOTSTRAP_PASSWORD" ]; then
         BOOTSTRAP_PASSWORD="$(generate_password)"
     fi
 
-    printf '%s\n' "$BOOTSTRAP_PORT" > "$STATE_DIR/port"
     printf '%s\n' "$BOOTSTRAP_USERNAME:CL:$BOOTSTRAP_PASSWORD" > "$STATE_DIR/users.list"
-    chmod 0600 "$STATE_DIR/port" "$STATE_DIR/users.list"
+    chmod 0600 "$STATE_DIR/users.list"
 
-    PORT="$BOOTSTRAP_PORT"
     USERS_PAYLOAD="$BOOTSTRAP_USERNAME:CL:$BOOTSTRAP_PASSWORD"
 
     echo "socks5proxy bootstrap credentials created in $STATE_DIR/users.list"
@@ -163,12 +171,6 @@ if ! validate_port "$PORT"; then
     exit 1
 fi
 
-if [ "$PUBLISH_MODE" = "bridge" ] && [ "$PORT" != "$PUBLISHED_PORT" ]; then
-    echo "Configured SOCKS5 port ($PORT) does not match published bridge port ($PUBLISHED_PORT)." >&2
-    echo "Either update SOCKS5_PUBLISHED_PORT to match, or switch to host networking for Amnezia compatibility." >&2
-    exit 1
-fi
-
 if [ -z "$USERS_PAYLOAD" ] && [ "$(lower "$AUTH_LINE")" != "none" ]; then
     echo "Authentication is enabled but no SOCKS5 users were found." >&2
     exit 1
@@ -178,6 +180,7 @@ if [ -n "$USERS_PAYLOAD" ]; then
     FIRST_USER="$(printf '%s\n' "$USERS_PAYLOAD" | awk '{print $1}' | cut -d: -f1)"
     echo "socks5proxy effective user: $FIRST_USER"
 fi
+echo "socks5proxy config mode: $CONFIG_MODE"
 echo "socks5proxy effective port: $PORT"
 
 cp "$BASE_CFG" "$GENERATED_CFG"

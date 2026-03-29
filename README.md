@@ -39,6 +39,9 @@ Today this repo provides a private DNS resolver for VPN-centric environments wit
 
 At the moment, the base Compose project defines the DNS service plus an opt-in `socks5proxy` profile.
 The broader VPN stack is the intended direction of the project, not the current implementation.
+The SOCKS5 module has two runtime modes:
+- Obscura mode in the base Compose file with a fixed internal port `1080` and a default published port `1080`
+- Amnezia mode via `compose.amnezia.yaml`, which combines DNS network compatibility with an externalized SOCKS5 config mount from `/srv/amnezia/socks5proxy/conf` and imports only proxy credentials from the Amnezia config
 
 ## Architecture Overview
 
@@ -83,7 +86,7 @@ Optional Amnezia compatibility network:
   Main standalone Compose definition for the project.
 
 - `compose.amnezia.yaml`
-  Optional overlay that attaches the DNS service to the external `amnezia-dns-net` network used for side-by-side Amnezia compatibility.
+  Optional overlay that attaches the DNS service to the external `amnezia-dns-net` network and enables Amnezia-compatible SOCKS5 config mounting for side-by-side compatibility.
 
 - `dns/`
   Dockerfile and Unbound configuration for the implemented DNS resolver.
@@ -163,9 +166,27 @@ Or use the wrapper script:
 ./scripts/compose-amnezia.sh
 ```
 
+If you also enable the `socks5proxy` profile in this mode, the overlay expects an externalized Amnezia SOCKS5 config at:
+
+```text
+/srv/amnezia/socks5proxy/conf/3proxy.cfg
+```
+
+In this mode, Obscura does not reuse the Amnezia SOCKS5 listen port.
+It keeps its own internal port `1080` and its own published port setting, while importing only the proxy users/passwords from the Amnezia `users ...` line.
+That allows `obscura-socks5proxy` to run side-by-side with `amnezia-socks5proxy` instead of replacing it.
+
+That layout matches the one-shot migration helper:
+
+```bash
+sudo bash scripts/externalize-amnezia-socks5proxy.sh
+```
+
 ### Mode B: Standalone DNS Deployment
 
 If you do not need Amnezia network compatibility, use the base file only.
+
+If you enable the `socks5proxy` profile in the base file, it listens on internal port `1080` and also publishes `1080` by default.
 
 ## Install And Run
 
@@ -231,6 +252,21 @@ docker exec -it obscura-dns-1 drill @127.0.0.1 google.com
 ```bash
 docker logs obscura-dns-1
 ```
+
+### Test SOCKS5 From The Host
+
+If you enable the `socks5proxy` profile, you can validate host-side ingress and proxy egress with:
+
+```bash
+sudo bash scripts/test-socks5proxy-host.sh
+```
+
+The script discovers the running `socks5proxy` container, extracts the effective published port and first configured proxy credential from Docker, then tests:
+- loopback ingress
+- host IPv4 ingress
+- host IPv6 ingress
+- public IPv4 egress
+- public IPv6 egress
 
 ### Check Docker Networks
 

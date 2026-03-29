@@ -109,6 +109,7 @@ Current Compose resources:
 - networks:
   - internal network `obscura-dns`
   - optional external compatibility network `amnezia-dns-net` provided only by `compose.amnezia.yaml`
+  - optional Amnezia-compatible SOCKS5 overlay behavior in `compose.amnezia.yaml` using `/srv/amnezia/socks5proxy/conf`
 
 ### DNS Resolver
 
@@ -145,6 +146,10 @@ Current design:
 - dynamic state can come from an Obscura-managed state directory or an Amnezia-compatible mounted config file
 - default state volume in Compose: `socks5proxy-data`
 - default state path in the container: `/var/lib/obscura/socks5proxy`
+- base Obscura mode uses a fixed internal listener port `1080`
+- base Obscura mode also defaults to publishing host port `1080`
+- `compose.amnezia.yaml` enables Amnezia mode by mounting `/srv/amnezia/socks5proxy/conf` read-only and setting `SOCKS5_COMPAT_CONFIG=/compat/3proxy.cfg`
+- Amnezia mode shares only SOCKS5 credentials with the externalized Amnezia config; it does not follow the Amnezia listen port
 
 Current runtime behavior:
 - the image keeps the upstream 3proxy startup path instead of replacing it with a dummy long-running shell
@@ -152,21 +157,27 @@ Current runtime behavior:
 - the base 3proxy image then starts with `/etc/3proxy/3proxy.cfg`, preserving the upstream safe-chroot model
 - logs are configured for stdout rather than an internal log file
 - DNS resolution is rendered dynamically and defaults to Obscura's internal DNS service over both IPv4 and IPv6 (`172.30.153.53`, `fd30:153::53`) rather than hardcoded public resolvers
-- the default listen address is `[::]` so the service can accept both IPv4 and IPv6 connections when the network stack is configured for dual-stack operation
+- the default listen address is `::` so the service can accept both IPv4 and IPv6 connections when the network stack is configured for dual-stack operation
+- in Obscura mode the container always listens on `1080/tcp`; host publishing is the only port customization point
+- in Amnezia mode the container still listens on `1080/tcp`; only proxy credentials are imported from the externalized Amnezia config
 - outbound address-family selection is explicit via `SOCKS5_RESOLVE_MODE`; default is `prefer_ipv6`, which renders 3proxy's `-64` flag
 - live validation confirmed that `prefer_ipv6` causes 3proxy to use IPv6 upstream addresses when AAAA records are available and container IPv6 egress is healthy
-- if no users are present and anonymous mode is not explicitly allowed, the entrypoint bootstraps a managed single-user config into the state directory
+- if no users are present and anonymous mode is not explicitly allowed, the Obscura-mode entrypoint bootstraps a managed single-user config into the state directory
 - the service now has a local Docker health check that verifies the rendered config exists, PID 1 is alive, and the expected TCP listener is present in `/proc/net/tcp` or `/proc/net/tcp6`
 
 Compatibility model:
 - Obscura-managed mode:
   - use `socks5proxy-data` or a bind-mounted host directory as the canonical state source
-  - dynamic files can include `port`, `users.list`, `username`, `password`, `auth_type`, and `extra.cfg`
+  - internal SOCKS5 listener port is fixed at `1080`
+  - dynamic files can include `users.list`, `username`, `password`, `auth_type`, and `extra.cfg`
 
 - Amnezia-compatible mode:
-  - mount an Amnezia-managed SOCKS5 config file and point `SOCKS5_COMPAT_CONFIG` to it
-  - the entrypoint extracts the effective port, auth mode, and users from that config and renders the Obscura config from those values
-  - this is intended to preserve compatibility with current Amnezia config management for the existing single-user model
+  - enabled through `compose.amnezia.yaml`
+  - mount `/srv/amnezia/socks5proxy/conf` read-only at `/compat`
+  - point `SOCKS5_COMPAT_CONFIG` to `/compat/3proxy.cfg`
+  - the entrypoint imports only the proxy users/passwords from the Amnezia `users ...` line
+  - the Obscura listener port remains `1080` and the published host port remains operator-controlled
+  - this mode is intended for side-by-side operation where `obscura-socks5proxy` extends rather than replaces `amnezia-socks5proxy`
 
 Multi-user support:
 - supported in Obscura-managed mode through `users.list`
@@ -298,6 +309,7 @@ Important current files:
 - `scripts/enable-docker-ipv6.sh`
 - `scripts/install-docker-compose-plugin.sh`
 - `scripts/externalize-amnezia-socks5proxy.sh`
+- `scripts/test-socks5proxy-host.sh`
 
 Important upstream reference files:
 - `amnezia-client/client/core/controllers/serverController.cpp`
