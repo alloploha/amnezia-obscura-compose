@@ -12,6 +12,8 @@ ALLOW_ANONYMOUS=${SOCKS5_ALLOW_ANONYMOUS:-false}
 DNS_SERVERS=${SOCKS5_DNS_SERVERS:-172.30.153.53,fd30:153::53}
 LISTEN_ADDR=${SOCKS5_LISTEN_ADDR:-::}
 EXTERNAL_ADDR=${SOCKS5_EXTERNAL_ADDR:-}
+EXTERNAL_ADDR_V4=${SOCKS5_EXTERNAL_ADDR_V4:-}
+EXTERNAL_ADDR_V6=${SOCKS5_EXTERNAL_ADDR_V6:-}
 PUBLISHED_PORT=${SOCKS5_PUBLISHED_PORT:-1080}
 PUBLISH_MODE=${SOCKS5_PUBLISH_MODE:-bridge}
 RESOLVE_MODE=${SOCKS5_RESOLVE_MODE:-prefer_ipv6}
@@ -93,6 +95,12 @@ mkdir -p "$STATE_DIR" /usr/local/3proxy/conf
 LISTEN_ADDR="$(normalize_bind_addr "$LISTEN_ADDR")"
 if [ -n "$EXTERNAL_ADDR" ]; then
     EXTERNAL_ADDR="$(normalize_bind_addr "$EXTERNAL_ADDR")"
+fi
+if [ -n "$EXTERNAL_ADDR_V4" ]; then
+    EXTERNAL_ADDR_V4="$(normalize_bind_addr "$EXTERNAL_ADDR_V4")"
+fi
+if [ -n "$EXTERNAL_ADDR_V6" ]; then
+    EXTERNAL_ADDR_V6="$(normalize_bind_addr "$EXTERNAL_ADDR_V6")"
 fi
 
 CONFIG_MODE="obscura"
@@ -212,12 +220,19 @@ SOCKS_FLAGS=""
 if [ -n "$RESOLVE_FLAG" ]; then
     SOCKS_FLAGS="$RESOLVE_FLAG"
 fi
-if [ -n "$EXTERNAL_ADDR" ]; then
+append_socks_flag() {
     if [ -n "$SOCKS_FLAGS" ]; then
-        SOCKS_FLAGS="$SOCKS_FLAGS -e$EXTERNAL_ADDR"
+        SOCKS_FLAGS="$SOCKS_FLAGS $1"
     else
-        SOCKS_FLAGS="-e$EXTERNAL_ADDR"
+        SOCKS_FLAGS="$1"
     fi
+}
+
+if [ -n "$EXTERNAL_ADDR_V4" ] || [ -n "$EXTERNAL_ADDR_V6" ]; then
+    [ -n "$EXTERNAL_ADDR_V4" ] && append_socks_flag "-e$EXTERNAL_ADDR_V4"
+    [ -n "$EXTERNAL_ADDR_V6" ] && append_socks_flag "-e$EXTERNAL_ADDR_V6"
+elif [ -n "$EXTERNAL_ADDR" ]; then
+    append_socks_flag "-e$EXTERNAL_ADDR"
 fi
 
 if [ -n "$SOCKS_FLAGS" ]; then
