@@ -468,8 +468,8 @@ main() {
         "curl_via_proxy '$DEFAULT_LOOPBACK_PROXY_HOST' '$PUBLIC_IPV4_URL' -4"
 
     run_test \
-        "Public IPv6 HTTP egress via 127.0.0.1" \
-        "curl_via_proxy '$DEFAULT_LOOPBACK_PROXY_HOST' '$PUBLIC_IPV6_URL' -6"
+        "Public IPv6 HTTP egress via ::1" \
+        "curl_via_proxy '::1' '$PUBLIC_IPV6_URL' -6"
 
     log ""
     log "Summary: pass=$PASS_COUNT fail=$FAIL_COUNT skip=$SKIP_COUNT"
