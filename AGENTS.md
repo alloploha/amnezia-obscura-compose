@@ -152,6 +152,7 @@ Current runtime behavior:
 - DNS resolution is rendered dynamically and defaults to Obscura's internal DNS service over both IPv4 and IPv6 (`172.30.153.53`, `fd30:153::53`) rather than hardcoded public resolvers
 - the default listen address is `[::]` so the service can accept both IPv4 and IPv6 connections when the network stack is configured for dual-stack operation
 - outbound address-family selection is explicit via `SOCKS5_RESOLVE_MODE`; default is `prefer_ipv6`, which renders 3proxy's `-64` flag
+- live validation confirmed that `prefer_ipv6` causes 3proxy to use IPv6 upstream addresses when AAAA records are available and container IPv6 egress is healthy
 - if no users are present and anonymous mode is not explicitly allowed, the entrypoint bootstraps a managed single-user config into the state directory
 
 Compatibility model:
@@ -306,7 +307,7 @@ Important upstream reference files:
 - The default Compose file currently references the external network `amnezia-dns-net`.
   If that network does not exist, `docker compose up` fails unless the operator removes that network block or creates the network.
 - `compose.yaml` already reserves some future volumes, but they are not yet attached to working services.
-- The `socks5proxy` module exists as an opt-in service, but it still needs live validation against a real Amnezia-managed SOCKS5 deployment.
+- The `socks5proxy` module exists as an opt-in service. Live validation has confirmed external IPv4 ingress, external IPv6 ingress, and IPv6-preferred upstream egress with `SOCKS5_RESOLVE_MODE=prefer_ipv6`.
 - The current Unbound config includes `a-records.conf` and `srv-records.conf`.
   Those files are not present in this repo's `dns/` directory.
   If the base image behavior changes, this assumption may need to be revisited.
@@ -317,7 +318,7 @@ Important upstream reference files:
   - parsed compatibility input from an Amnezia-generated `3proxy.cfg`
   This split is intentional for now but may be worth unifying later.
 - Full automatic compatibility with Amnezia-driven SOCKS5 port changes is not possible in normal bridge mode because Compose port publishing is static.
-- The SOCKS5 module now supports configurable outbound family preference, but live validation should still confirm the expected 3proxy behavior for each mode (`auto`, `prefer_ipv6`, `ipv6_only`, `prefer_ipv4`, `ipv4_only`).
+- The SOCKS5 module now supports configurable outbound family preference. `prefer_ipv6` has been live-validated; the remaining modes (`auto`, `ipv6_only`, `prefer_ipv4`, `ipv4_only`) are still worth validating explicitly.
 
 ## Recommended Implementation Direction
 
