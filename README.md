@@ -1,107 +1,297 @@
-# Obscura DNS
+# Amnezia Obscura Compose
 
-Minimal self-hosted DNS service for VPN environments (Amnezia, WireGuard, Xray).
+Obscura is a Docker Compose based, Amnezia-compatible server-side deployment layer for self-hosted VPN infrastructure.
 
->This project is not a fork of the original [Amnezia VPN](https://github.com/amnezia-vpn/amnezia-client) repository.
->It is an independent deployment layer designed to standardize and extend infrastructure around Amnezia-compatible components.
+The final goal of the project is to provide a Compose-native backend for Amnezia-style deployments:
+- containerized VPN and DNS services
+- better Docker integration
+- easier direct server management
+- side-by-side compatibility with vanilla Amnezia
 
-## What this gives you
+Current status:
+- implemented now: private DNS resolver
+- planned next: Compose-managed VPN protocol services such as WireGuard, AWG, Xray, OpenVPN, and IPsec
 
-- Private DNS resolver for VPN clients and containers
-- DNS-over-TLS upstreams (Cloudflare, Quad9, Google)
-- Protection from ISP DNS interception
-- Support for Emercoin domains (.coin, .emc, etc.)
-- IPv4 + IPv6 support (optional)
+This repository is not a fork of the Amnezia application.
+It is an independent deployment/orchestration layer built around Amnezia-compatible ideas and upstream server container logic.
+
+## Why This Project Exists
+
+Vanilla Amnezia is very good at provisioning VPN containers through the client UI, but its server-side lifecycle is largely driven by application-managed SSH scripts and imperative `docker run` flows.
+
+Obscura aims to provide a cleaner operator experience:
+- Compose-managed services instead of ad hoc container runs
+- explicit networks and volumes
+- easier server administration from the command line
+- compatibility with existing Amnezia assumptions where it is useful
+
+## Current Scope
+
+Today this repo provides a private DNS resolver for VPN-centric environments with:
+- Unbound
+- DNS-over-TLS upstream resolution
+- DNSSEC-aware hardening
+- Emercoin stub zones
+- Docker network integration
+- optional compatibility attachment to `amnezia-dns-net`
+
+At the moment, the top-level Compose project defines only the DNS service.
+The broader VPN stack is the intended direction of the project, not the current implementation.
+
+## Architecture Overview
+
+### Resolver
+
+- Unbound
+- caching
+- DNSSEC and resolver hardening
+- DoT forwarding to public upstream resolvers
+- stub zones for Emercoin domains
+
+Configuration lives in:
+- `dns/unbound.conf`
+- `dns/forward-records.conf`
+
+### Networks
+
+Internal Obscura DNS network:
+- name: `obscura-dns`
+- IPv4: `172.30.153.0/26`
+- IPv6: `fd30:153::/64`
+
+Optional Amnezia compatibility network:
+- name: `amnezia-dns-net`
+- IPv4 expected by current code: `172.29.172.0/24`
+
+### DNS Container Addresses
+
+- internal IPv4: `172.30.153.53`
+- internal IPv6: `fd30:153::53`
+- compatibility IPv4 on `amnezia-dns-net`: `172.29.172.153`
+
+### Security Model
+
+- restricted resolver ACLs
+- no host exposure by default
+- intended for Docker and VPN clients on known networks
+
+## Repository Layout
+
+- `compose.yaml`
+  Main Compose definition for the project.
+
+- `dns/`
+  Dockerfile and Unbound configuration for the implemented DNS resolver.
+
+- `scripts/`
+  Helper scripts for Docker Compose plugin installation and Docker IPv6 enablement.
+
+- `amnezia-client/`
+  Upstream Amnezia client submodule kept as reference/source material for protocol container scripts and compatibility work.
 
 ## Requirements
 
-- Docker + Docker Compose
-- Optional: IPv6 enabled in Docker
+- Linux host with root access
+- Docker Engine
+- Docker Compose plugin
+- optional: Docker IPv6 enabled for dual-stack operation
 
-## Enable IPv6 (optional)
+## Prepare The Host
+
+### 1. Install Docker Compose Plugin
+
+If Docker is already installed but `docker compose` is missing:
 
 ```bash
-./enable-docker-ipv6.sh --restart
+sudo bash scripts/install-docker-compose-plugin.sh
 ```
 
-## Run
+### 2. Enable Docker IPv6 (Optional)
+
+If you want the internal IPv6 network to work:
+
+```bash
+sudo bash scripts/enable-docker-ipv6.sh --restart
+```
+
+IPv6 is optional.
+If Docker IPv6 is not enabled, the DNS service can still work over IPv4.
+
+### 3. Clone The Repository
+
+```bash
+git clone --recurse-submodules https://github.com/alloploha/amnezia-obscura-compose.git
+cd amnezia-obscura-compose
+```
+
+Using `--recurse-submodules` is recommended because the repo keeps the upstream Amnezia client as a submodule for compatibility work and future protocol integration.
+
+## Choosing A Deployment Mode
+
+The default `compose.yaml` expects the external Docker network `amnezia-dns-net` to exist.
+
+Use one of these modes:
+
+### Mode A: Side-By-Side With Vanilla Amnezia
+
+If you already use vanilla Amnezia on the same host, it may already have created `amnezia-dns-net`.
+
+If not, create it manually:
+
+```bash
+docker network create \
+  --driver bridge \
+  --subnet=172.29.172.0/24 \
+  amnezia-dns-net
+```
+
+Then start Obscura normally.
+
+### Mode B: Standalone DNS Deployment
+
+If you do not need Amnezia network compatibility, edit `compose.yaml` and remove:
+- the top-level `amnezia-dns` network block
+- the `amnezia-dns` attachment under `services.dns.networks`
+
+Then start Obscura normally.
+
+## Install And Run
+
+Start the current stack:
 
 ```bash
 docker compose up -d --build
 ```
 
-## Amnezia network
-
-This setup optionally connects to an existing Docker network: `amnezia-dns`.
-
-If you see:
-
-```
-network amnezia-dns declared as external, but could not be found
-```
-
-Then remove it:
-
-* delete `amnezia-dns` network block
-* remove it from `services.dns.networks`
-
-## How to use
-
-DNS server runs at:
-
-* internal: `172.30.153.53`
-* IPv6: `fd30:153::53`
-* optional (Amnezia): `172.27.172.153`
-
-Use this IP in your VPN or container configs.
-
-## Testing
-
-### Inside container (recommended)
+Verify:
 
 ```bash
-docker exec -it obscura-dns-1 drill @127.0.0.1 google.com
+docker compose ps
 ```
 
-### From another container
+You should see the DNS service running in the `obscura` project.
 
-```bash
-docker run --rm -it --network obscura-dns drill @172.30.153.53 google.com
-```
+## Usage
 
-### From host (optional)
+### DNS Inside Docker Networks
 
-Expose port 53 in compose:
+Use these addresses from containers or VPN services:
+
+- `172.30.153.53`
+- `fd30:153::53`
+- `172.29.172.153` on `amnezia-dns-net` if that network is attached
+
+Typical use cases:
+- set the DNS server for future VPN protocol containers
+- point test containers at the resolver
+- integrate side-by-side with an Amnezia-managed environment
+
+### DNS From The Host
+
+By default, the DNS container is not exposed to the host.
+
+If you want host access, publish port 53 in `compose.yaml`:
 
 ```yaml
-ports:
-  - "53:53/udp"
-  - "53:53/tcp"
+services:
+  dns:
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
 ```
 
-Then:
+Then query it from the host:
 
 ```bash
 dig @127.0.0.1 google.com
 ```
 
-## Troubleshooting
+## Testing
 
-### No DNS response
-
-* check container:
+### Test From Inside The DNS Container
 
 ```bash
-docker ps
+docker exec -it obscura-dns-1 drill @127.0.0.1 google.com
+```
+
+### Test Logs
+
+```bash
 docker logs obscura-dns-1
 ```
 
-### Host cannot reach 172.x.x.x
+### Check Docker Networks
 
-* expected behavior
-* use container tests or expose ports
+```bash
+docker network ls
+```
 
-### IPv6 not working
+## Troubleshooting
 
-* ensure Docker IPv6 is enabled
-* restart Docker after changes
+### `amnezia-dns-net` Is Missing
+
+If `docker compose up` fails with an external network error, either:
+- create `amnezia-dns-net`, or
+- remove the compatibility network from `compose.yaml` for standalone use
+
+### Host Cannot Reach Container IPs
+
+This is expected for a user-defined bridge network.
+Use port publishing if you need host access.
+
+### IPv6 Does Not Work
+
+Check Docker IPv6 support:
+
+```bash
+docker info | grep -i ipv6
+```
+
+If needed, enable IPv6 and restart Docker:
+
+```bash
+sudo bash scripts/enable-docker-ipv6.sh --restart
+```
+
+### No DNS Response
+
+Check:
+- container status with `docker compose ps`
+- logs with `docker logs obscura-dns-1`
+- Docker networks with `docker network ls`
+- whether the client is querying one of the allowed subnets
+
+## Relationship To Upstream Amnezia
+
+This repo includes the upstream `amnezia-client` repository as a submodule.
+That submodule currently serves as:
+- reference implementation
+- source of protocol Dockerfiles
+- source of protocol configuration scripts
+- compatibility material for future Compose-native VPN services
+
+The current top-level Compose stack does not yet run those protocol services.
+That is the planned next stage of the project.
+
+## Roadmap Direction
+
+The intended path for Obscura is:
+1. keep the DNS service stable
+2. define persistent state and volume layout for protocol containers
+3. add Compose-native services for WireGuard, AWG, Xray, and other protocols
+4. preserve practical compatibility with Amnezia networking and configuration behavior
+5. provide a server-side stack that advanced users can manage directly
+
+## Contributing
+
+Contributions should preserve two things at the same time:
+- honest documentation about what is implemented now
+- steady progress toward the full Compose-native Amnezia-compatible backend
+
+If you change architecture, networking, service definitions, or compatibility assumptions, update both:
+- `README.md`
+- `AGENTS.md`
+
+## License
+
+See `LICENSE`.
