@@ -158,7 +158,7 @@ Current runtime behavior:
 - logs are configured for stdout rather than an internal log file
 - DNS resolution is rendered dynamically and defaults to Obscura's internal DNS service over both IPv4 and IPv6 (`172.30.153.53`, `fd30:153::53`) rather than hardcoded public resolvers
 - the default listen address is `::` so the service can accept both IPv4 and IPv6 connections when the network stack is configured for dual-stack operation
-- outbound source binding can be set explicitly with `SOCKS5_EXTERNAL_ADDR`, or more precisely with `SOCKS5_EXTERNAL_ADDR_V4` and `SOCKS5_EXTERNAL_ADDR_V6`; this is useful when 3proxy needs concrete per-family source addresses for egress
+- outbound source binding can be set explicitly with `SOCKS5_EXTERNAL_ADDR` as a simple fallback, or more precisely with the advanced per-family overrides `SOCKS5_EXTERNAL_ADDR_V4` and `SOCKS5_EXTERNAL_ADDR_V6`; if either family-specific variable is set, it takes precedence over the generic fallback
 - in Obscura mode the container always listens on `1080/tcp`; host publishing is the only port customization point
 - in Amnezia mode the container still listens on `1080/tcp`; only proxy credentials are imported from the externalized Amnezia config
 - outbound address-family selection is explicit via `SOCKS5_RESOLVE_MODE`; default is `prefer_ipv6`, which renders 3proxy's `-64` flag

@@ -187,7 +187,7 @@ sudo bash scripts/externalize-amnezia-socks5proxy.sh
 If you do not need Amnezia network compatibility, use the base file only.
 
 If you enable the `socks5proxy` profile in the base file, it listens on internal port `1080` and also publishes `1080` by default.
-If outbound source binding needs to be explicit, set `SOCKS5_EXTERNAL_ADDR`, or preferably the family-specific `SOCKS5_EXTERNAL_ADDR_V4` and `SOCKS5_EXTERNAL_ADDR_V6`. For IPv6, use an address owned by the container, for example `fd30:153::2`.
+If outbound source binding needs to be explicit, use `SOCKS5_EXTERNAL_ADDR` as the simple fallback. For dual-stack tuning, use the advanced per-family overrides `SOCKS5_EXTERNAL_ADDR_V4` and `SOCKS5_EXTERNAL_ADDR_V6`; if either of those is set, it takes precedence over the generic fallback. For IPv6, use an address owned by the container, for example `fd30:153::2`.
 
 ## Install And Run
 
