@@ -151,6 +151,7 @@ Current runtime behavior:
 - logs are configured for stdout rather than an internal log file
 - DNS resolution is rendered dynamically and defaults to Obscura's internal DNS service over both IPv4 and IPv6 (`172.30.153.53`, `fd30:153::53`) rather than hardcoded public resolvers
 - the default listen address is `[::]` so the service can accept both IPv4 and IPv6 connections when the network stack is configured for dual-stack operation
+- outbound address-family selection is explicit via `SOCKS5_RESOLVE_MODE`; default is `prefer_ipv6`, which renders 3proxy's `-64` flag
 - if no users are present and anonymous mode is not explicitly allowed, the entrypoint bootstraps a managed single-user config into the state directory
 
 Compatibility model:
@@ -316,6 +317,7 @@ Important upstream reference files:
   - parsed compatibility input from an Amnezia-generated `3proxy.cfg`
   This split is intentional for now but may be worth unifying later.
 - Full automatic compatibility with Amnezia-driven SOCKS5 port changes is not possible in normal bridge mode because Compose port publishing is static.
+- The SOCKS5 module now supports configurable outbound family preference, but live validation should still confirm the expected 3proxy behavior for each mode (`auto`, `prefer_ipv6`, `ipv6_only`, `prefer_ipv4`, `ipv4_only`).
 
 ## Recommended Implementation Direction
 

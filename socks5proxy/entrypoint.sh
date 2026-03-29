@@ -13,6 +13,7 @@ LISTEN_ADDR=${SOCKS5_LISTEN_ADDR:-0.0.0.0}
 PORT_DEFAULT=${SOCKS5_PORT_DEFAULT:-38080}
 PUBLISHED_PORT=${SOCKS5_PUBLISHED_PORT:-38080}
 PUBLISH_MODE=${SOCKS5_PUBLISH_MODE:-bridge}
+RESOLVE_MODE=${SOCKS5_RESOLVE_MODE:-prefer_ipv6}
 BOOTSTRAP_USERNAME=${SOCKS5_BOOTSTRAP_USERNAME:-proxy_user}
 BOOTSTRAP_PASSWORD=${SOCKS5_BOOTSTRAP_PASSWORD:-}
 BOOTSTRAP_PORT=${SOCKS5_BOOTSTRAP_PORT:-$PUBLISHED_PORT}
@@ -35,6 +36,31 @@ is_true() {
     case "$(lower "$1")" in
         1|true|yes|on) return 0 ;;
         *) return 1 ;;
+    esac
+}
+
+resolve_mode_flag() {
+    case "$(lower "$1")" in
+        auto|'')
+            printf '%s' ''
+            ;;
+        prefer_ipv6)
+            printf '%s' '-64'
+            ;;
+        ipv6_only)
+            printf '%s' '-6'
+            ;;
+        prefer_ipv4)
+            printf '%s' '-46'
+            ;;
+        ipv4_only)
+            printf '%s' '-4'
+            ;;
+        *)
+            echo "Invalid SOCKS5 resolve mode: $1" >&2
+            echo "Valid values: auto, prefer_ipv6, ipv6_only, prefer_ipv4, ipv4_only" >&2
+            exit 1
+            ;;
     esac
 }
 
@@ -174,7 +200,12 @@ if [ -n "$EXTRA_CFG_SOURCE" ]; then
     printf 'include /conf/extra.cfg\n' >> "$GENERATED_CFG"
 fi
 
-printf 'socks -p%s -i%s\n' "$PORT" "$LISTEN_ADDR" >> "$GENERATED_CFG"
+RESOLVE_FLAG="$(resolve_mode_flag "$RESOLVE_MODE")"
+if [ -n "$RESOLVE_FLAG" ]; then
+    printf 'socks %s -p%s -i%s\n' "$RESOLVE_FLAG" "$PORT" "$LISTEN_ADDR" >> "$GENERATED_CFG"
+else
+    printf 'socks -p%s -i%s\n' "$PORT" "$LISTEN_ADDR" >> "$GENERATED_CFG"
+fi
 chmod 0440 "$GENERATED_CFG"
 
 exec "$@"
