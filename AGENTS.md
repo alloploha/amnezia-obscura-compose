@@ -97,8 +97,9 @@ Do not describe the VPN stack as implemented unless the repo actually contains w
 
 ### Top-Level Compose Model
 
-Top-level file:
+Top-level files:
 - `compose.yaml`
+- `compose.amnezia.yaml`
 
 Current Compose resources:
 - service: `dns`
@@ -107,7 +108,7 @@ Current Compose resources:
 - service data volume: `socks5proxy-data`
 - networks:
   - internal network `obscura-dns`
-  - optional external compatibility network `amnezia-dns-net`
+  - optional external compatibility network `amnezia-dns-net` provided only by `compose.amnezia.yaml`
 
 ### DNS Resolver
 
@@ -185,6 +186,7 @@ Current internal network:
 Current optional external compatibility network:
 - name: `amnezia-dns-net`
 - IPv4 subnet expected by current code: `172.29.172.0/24`
+- attached only when `compose.amnezia.yaml` is used
 
 Current DNS container addresses:
 - internal IPv4: `172.30.153.53`
@@ -305,8 +307,8 @@ Important upstream reference files:
 ## Known Constraints And Gaps
 
 - Only DNS is implemented as a top-level Compose service.
-- The default Compose file currently references the external network `amnezia-dns-net`.
-  If that network does not exist, `docker compose up` fails unless the operator removes that network block or creates the network.
+- The base `compose.yaml` is standalone and does not require `amnezia-dns-net`.
+- Side-by-side compatibility with vanilla Amnezia now lives in `compose.amnezia.yaml`, which requires the external network `amnezia-dns-net` to exist.
 - `compose.yaml` already reserves some future volumes, but they are not yet attached to working services.
 - The `socks5proxy` module exists as an opt-in service. Live validation has confirmed external IPv4 ingress, external IPv6 ingress, and IPv6-preferred upstream egress with `SOCKS5_RESOLVE_MODE=prefer_ipv6`.
 - The current Unbound config includes `a-records.conf` and `srv-records.conf`.
@@ -346,6 +348,7 @@ Near-term service work now includes:
   - or Linux host networking for seamless port compatibility
 - document the recommended host bind-mount layout for service state under `/srv/amnezia/...`
 - use the existing one-shot SOCKS5 migration helper when converting a live Amnezia `amnezia-socks5proxy` container to host-backed `conf/` and `logs/`
+- use `scripts/compose-amnezia.sh` when operating the stack with the Amnezia overlay
 
 ## Documentation Rules For Future Agents
 

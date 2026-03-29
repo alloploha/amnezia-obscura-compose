@@ -1,0 +1,10 @@
+services:
+  dns:
+    networks:
+      amnezia-dns:
+        ipv4_address: 172.29.172.153
+
+networks:
+  amnezia-dns:
+    name: amnezia-dns-net
+    external: true

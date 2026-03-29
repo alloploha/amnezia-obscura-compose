@@ -34,8 +34,9 @@ Today this repo provides a private DNS resolver for VPN-centric environments wit
 - Emercoin stub zones
 - Docker network integration
 - optional compatibility attachment to `amnezia-dns-net`
+- an opt-in Compose-native SOCKS5 proxy module based on 3proxy
 
-At the moment, the top-level Compose project defines only the DNS service.
+At the moment, the base Compose project defines the DNS service plus an opt-in `socks5proxy` profile.
 The broader VPN stack is the intended direction of the project, not the current implementation.
 
 ## Architecture Overview
@@ -78,13 +79,19 @@ Optional Amnezia compatibility network:
 ## Repository Layout
 
 - `compose.yaml`
-  Main Compose definition for the project.
+  Main standalone Compose definition for the project.
+
+- `compose.amnezia.yaml`
+  Optional overlay that attaches the DNS service to the external `amnezia-dns-net` network used for side-by-side Amnezia compatibility.
 
 - `dns/`
   Dockerfile and Unbound configuration for the implemented DNS resolver.
 
+- `socks5proxy/`
+  Dockerfile, entrypoint, and baseline config for the opt-in SOCKS5 proxy service.
+
 - `scripts/`
-  Helper scripts for Docker Compose plugin installation and Docker IPv6 enablement.
+  Helper scripts for Docker Compose plugin installation, Docker IPv6 enablement, Amnezia compatibility Compose usage, and SOCKS5 externalization.
 
 - `amnezia-client/`
   Upstream Amnezia client submodule kept as reference/source material for protocol container scripts and compatibility work.
@@ -128,8 +135,6 @@ Using `--recurse-submodules` is recommended because the repo keeps the upstream 
 
 ## Choosing A Deployment Mode
 
-The default `compose.yaml` expects the external Docker network `amnezia-dns-net` to exist.
-
 Use one of these modes:
 
 ### Mode A: Side-By-Side With Vanilla Amnezia
@@ -145,15 +150,21 @@ docker network create \
   amnezia-dns-net
 ```
 
-Then start Obscura normally.
+Then start Obscura with the Amnezia overlay:
+
+```bash
+docker compose -f compose.yaml -f compose.amnezia.yaml up -d --build
+```
+
+Or use the wrapper script:
+
+```bash
+./scripts/compose-amnezia.sh
+```
 
 ### Mode B: Standalone DNS Deployment
 
-If you do not need Amnezia network compatibility, edit `compose.yaml` and remove:
-- the top-level `amnezia-dns` network block
-- the `amnezia-dns` attachment under `services.dns.networks`
-
-Then start Obscura normally.
+If you do not need Amnezia network compatibility, use the base file only.
 
 ## Install And Run
 
@@ -230,9 +241,11 @@ docker network ls
 
 ### `amnezia-dns-net` Is Missing
 
-If `docker compose up` fails with an external network error, either:
+This matters only when using `compose.amnezia.yaml`.
+
+If the Amnezia-overlay command fails with an external network error, either:
 - create `amnezia-dns-net`, or
-- remove the compatibility network from `compose.yaml` for standalone use
+- run the base `compose.yaml` without the Amnezia overlay
 
 ### Host Cannot Reach Container IPs
 

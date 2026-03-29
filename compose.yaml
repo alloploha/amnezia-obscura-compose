@@ -9,9 +9,6 @@ networks:
       config:
         - subnet: 172.30.153.0/26
         - subnet: fd30:153::/64
-  amnezia-dns:
-    name: amnezia-dns-net
-    external: 'true'
 
 volumes:
   awg-data:
@@ -35,8 +32,6 @@ services:
       dns:
         ipv4_address: 172.30.153.53
         ipv6_address: fd30:153::53
-      amnezia-dns:
-        ipv4_address: 172.29.172.153
 
   socks5proxy:
     profiles: ["socks5proxy"]
