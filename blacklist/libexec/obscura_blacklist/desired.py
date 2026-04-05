@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import ipaddress
 import json
+import random
+import struct
 import socket
 import time
 from dataclasses import asdict, dataclass
@@ -24,6 +26,7 @@ LAST_GOOD_TARGETS_VERSION = 1
 HEALTH_VERSION = 1
 ASN_PREFIXES_URL = "https://stat.ripe.net/data/announced-prefixes/data.json?resource={asn}"
 TraceFn = Callable[[str], None]
+DNS_TIMEOUT_SECONDS = 5
 
 LOCAL_NETWORKS_V4 = (
     ipaddress.ip_network("10.0.0.0/8"),
@@ -175,8 +178,190 @@ def _filter_local_networks(
     return _sort_networks(kept)
 
 
-def _resolve_domain(domain: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _encode_dns_name(query_name: str) -> bytes:
+    labels = query_name.rstrip(".").split(".")
+    encoded = bytearray()
+    for label in labels:
+        label_bytes = label.encode("ascii")
+        if not label_bytes or len(label_bytes) > 63:
+            raise ValueError(f"invalid DNS label in {query_name!r}")
+        encoded.append(len(label_bytes))
+        encoded.extend(label_bytes)
+    encoded.append(0)
+    return bytes(encoded)
+
+
+def _build_dns_query(query_name: str, qtype: int, query_id: int) -> bytes:
+    header = struct.pack("!HHHHHH", query_id, 0x0100, 1, 0, 0, 0)
+    question = _encode_dns_name(query_name) + struct.pack("!HH", qtype, 1)
+    return header + question
+
+
+def _decode_dns_name(message: bytes, offset: int) -> tuple[str, int]:
+    labels: list[str] = []
+    jumped = False
+    original_offset = offset
+
+    while True:
+        if offset >= len(message):
+            raise ValueError("truncated DNS name")
+        length = message[offset]
+        if length & 0xC0 == 0xC0:
+            if offset + 1 >= len(message):
+                raise ValueError("truncated DNS pointer")
+            pointer = ((length & 0x3F) << 8) | message[offset + 1]
+            if pointer >= len(message):
+                raise ValueError("invalid DNS pointer")
+            if not jumped:
+                original_offset = offset + 2
+            offset = pointer
+            jumped = True
+            continue
+        if length == 0:
+            offset += 1
+            break
+        offset += 1
+        label = message[offset : offset + length]
+        if len(label) != length:
+            raise ValueError("truncated DNS label")
+        labels.append(label.decode("ascii"))
+        offset += length
+
+    return ".".join(labels), (original_offset if jumped else offset)
+
+
+def _parse_dns_answers(response: bytes, query_id: int, qtype: int) -> tuple[str, ...]:
+    if len(response) < 12:
+        raise ValueError("truncated DNS response")
+
+    resp_id, flags, qdcount, ancount, _, _ = struct.unpack("!HHHHHH", response[:12])
+    if resp_id != query_id:
+        raise ValueError("mismatched DNS response id")
+    if (flags >> 15) != 1:
+        raise ValueError("invalid DNS response flag state")
+    rcode = flags & 0x000F
+    if rcode != 0:
+        raise RuntimeError(f"DNS server returned rcode {rcode}")
+
+    offset = 12
+    for _ in range(qdcount):
+        _, offset = _decode_dns_name(response, offset)
+        offset += 4
+        if offset > len(response):
+            raise ValueError("truncated DNS question")
+
+    answers: list[str] = []
+    expected_rdlength = 4 if qtype == 1 else 16
+    family = socket.AF_INET if qtype == 1 else socket.AF_INET6
+
+    for _ in range(ancount):
+        _, offset = _decode_dns_name(response, offset)
+        if offset + 10 > len(response):
+            raise ValueError("truncated DNS answer")
+        rtype, rclass, _, rdlength = struct.unpack("!HHIH", response[offset : offset + 10])
+        offset += 10
+        rdata = response[offset : offset + rdlength]
+        if len(rdata) != rdlength:
+            raise ValueError("truncated DNS rdata")
+        offset += rdlength
+        if rclass != 1 or rtype != qtype or rdlength != expected_rdlength:
+            continue
+        answers.append(socket.inet_ntop(family, rdata))
+
+    return _sort_networks(answers)
+
+
+def _parse_resolver_servers(value: str) -> tuple[tuple[socket.AddressFamily, tuple[object, ...]], ...]:
+    servers: list[tuple[socket.AddressFamily, tuple[object, ...]]] = []
+    for raw_server in value.replace(",", " ").split():
+        server = raw_server.strip()
+        if not server:
+            continue
+        if server.startswith("[") and server.endswith("]"):
+            server = server[1:-1]
+        try:
+            ipv4 = ipaddress.IPv4Address(server)
+        except ValueError:
+            ipv4 = None
+        if ipv4 is not None:
+            servers.append((socket.AF_INET, (str(ipv4), 53)))
+            continue
+        try:
+            ipv6 = ipaddress.IPv6Address(server)
+        except ValueError as exc:
+            raise RuntimeError(
+                "BLACKLIST_RESOLVER must be a comma- or space-separated list of IP literals"
+            ) from exc
+        servers.append((socket.AF_INET6, (str(ipv6), 53, 0, 0)))
+
+    return tuple(servers)
+
+
+def _resolve_domain_via_server(
+    query_name: str,
+    qtype: int,
+    *,
+    family: socket.AddressFamily,
+    address: tuple[object, ...],
+) -> tuple[str, ...]:
+    query_id = random.randint(0, 0xFFFF)
+    request = _build_dns_query(query_name, qtype, query_id)
+    with socket.socket(family, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(DNS_TIMEOUT_SECONDS)
+        sock.sendto(request, address)
+        response, _ = sock.recvfrom(4096)
+    return _parse_dns_answers(response, query_id, qtype)
+
+
+def _resolve_domain_with_custom_servers(
+    domain: str,
+    *,
+    servers: tuple[tuple[socket.AddressFamily, tuple[object, ...]], ...],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     query_name = domain.encode("idna").decode("ascii")
+    ipv4: tuple[str, ...] = ()
+    ipv6: tuple[str, ...] = ()
+    failures = 0
+
+    for qtype, family_name in ((1, "A"), (28, "AAAA")):
+        last_error: Exception | None = None
+        answers: tuple[str, ...] = ()
+        for family, address in servers:
+            try:
+                answers = _resolve_domain_via_server(
+                    query_name,
+                    qtype,
+                    family=family,
+                    address=address,
+                )
+                last_error = None
+                break
+            except (OSError, RuntimeError, ValueError) as exc:
+                last_error = exc
+                continue
+        if last_error is not None and not answers:
+            failures += 1
+        if qtype == 1:
+            ipv4 = answers
+        else:
+            ipv6 = answers
+
+    if failures == 2 and not ipv4 and not ipv6:
+        raise RuntimeError(
+            f"{domain}: failed A/AAAA lookups via BLACKLIST_RESOLVER"
+        )
+
+    return ipv4, ipv6
+
+
+def _resolve_domain(
+    domain: str,
+    *,
+    resolver_servers: tuple[tuple[socket.AddressFamily, tuple[object, ...]], ...] | None = None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    query_name = domain.encode("idna").decode("ascii")
+    if resolver_servers:
+        return _resolve_domain_with_custom_servers(domain, servers=resolver_servers)
     ipv4: set[str] = set()
     ipv6: set[str] = set()
 
@@ -413,6 +598,10 @@ def _resolve_category(
     ipv6_entries: list[str] = []
     resolved_entry_count = 0
     unresolved_entry_count = 0
+    resolver_servers = None
+    resolver_value = config.values.get("BLACKLIST_RESOLVER", "").strip()
+    if resolver_value:
+        resolver_servers = _parse_resolver_servers(resolver_value)
 
     if trace is not None:
         trace(
@@ -422,7 +611,14 @@ def _resolve_category(
 
     if category.kind == "domains":
         for domain in category.accepted_entries:
-            resolved_v4, resolved_v6 = _resolve_domain(domain)
+            try:
+                resolved_v4, resolved_v6 = _resolve_domain(
+                    domain,
+                    resolver_servers=resolver_servers,
+                )
+            except RuntimeError as exc:
+                warnings.append(f"{category.path.name}: {exc}")
+                resolved_v4, resolved_v6 = (), ()
             if not resolved_v4 and not resolved_v6:
                 warnings.append(f"{category.path.name}: domain did not resolve: {domain}")
                 unresolved_entry_count += 1
@@ -513,10 +709,15 @@ def build_desired_state(
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     warnings: list[str] = []
-    if inspection.config.values.get("BLACKLIST_RESOLVER"):
+    resolver_value = inspection.config.values.get("BLACKLIST_RESOLVER", "").strip()
+    if resolver_value:
+        resolver_servers = _parse_resolver_servers(resolver_value)
         warnings.append(
-            "BLACKLIST_RESOLVER is set, but custom resolver selection is not implemented yet; using system resolver"
+            "BLACKLIST_RESOLVER is active; domain lookups will use the configured DNS server list"
         )
+        if trace is not None:
+            rendered_servers = ", ".join(address[0] for _, address in resolver_servers)
+            trace(f"Using configured DNS servers: {rendered_servers}")
 
     nft_table_family, nft_table_name = parse_nft_table_spec(
         inspection.config.values["BLACKLIST_NFT_TABLE"]
@@ -533,6 +734,15 @@ def build_desired_state(
             trace=trace,
         )
         for category in inspection.categories
+    )
+    categories = tuple(
+        sorted(
+            categories,
+            key=lambda category: (
+                0 if category.kind == "domains" else 1,
+                category.name,
+            ),
+        )
     )
 
     total_ipv4_entries = sum(len(category.ipv4_entries) for category in categories)

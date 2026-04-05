@@ -65,6 +65,8 @@ def _print_check(inspection: Inspection) -> int:
     print(f"State: {inspection.config.effective_state_dir}")
     print(f"Cache: {inspection.config.effective_cache_dir}")
     print(f"Backend mode: {inspection.backend.mode}")
+    resolver_value = inspection.config.values.get("BLACKLIST_RESOLVER", "").strip()
+    print(f"Resolver override: {resolver_value or 'system resolver'}")
 
     if inspection.docker.binary_path:
         print(f"Docker binary: {inspection.docker.binary_path}")
@@ -135,6 +137,8 @@ def _print_status(inspection: Inspection) -> int:
     print(f"Effective state dir: {inspection.config.effective_state_dir}")
     print(f"Configured cache dir: {inspection.config.configured_cache_dir}")
     print(f"Effective cache dir: {inspection.config.effective_cache_dir}")
+    resolver_value = inspection.config.values.get("BLACKLIST_RESOLVER", "").strip()
+    print(f"Resolver override: {resolver_value or 'system resolver'}")
     print(f"Using repo fallback: {'yes' if inspection.config.using_repo_fallback else 'no'}")
     print()
 

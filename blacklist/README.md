@@ -50,6 +50,7 @@ Where rules are installed:
 iptables chain shape:
 - first rule: `-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT`
 - last rule: `-j RETURN`
+- generated blacklist rules are ordered with domain-derived categories first and ASN-derived categories after them
 
 Dual-stack model:
 - IPv4 and IPv6 are handled separately
@@ -159,6 +160,9 @@ Key settings:
 - `BLACKLIST_RULE_DIRECTION`
   default match direction, currently `dst`
 
+- `BLACKLIST_RESOLVER`
+  optional comma- or space-separated list of IPv4 and IPv6 DNS server IP literals to use for domain resolution instead of the host system resolver
+
 - `BLACKLIST_ALLOW_STALE_RESTORE`
   allow reuse of last-known-good per-category targets when fresh resolution produces no usable targets
 
@@ -197,6 +201,11 @@ Rules:
 - concrete domains are accepted
 - wildcard domains are ignored with a warning
 - ASNs such as `AS47764` are accepted
+
+Domain resolution:
+- by default uses the host system resolver
+- if `BLACKLIST_RESOLVER` is set, uses the configured DNS server list directly
+- supports a comma- or space-separated list of IP literals
 
 Current ASN expansion implementation:
 - cached HTTPS lookup against RIPE Stat announced-prefix data

@@ -114,6 +114,7 @@ When evidence is ambiguous:
 - `iptables-nft` is still managed as an `iptables` frontend, not as native `nftables`
 - normalize `DOCKER-USER` so the first rule is `-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT`
 - normalize `DOCKER-USER` so the last rule is `-j RETURN`
+- install more specific domain-derived category rules before broader ASN-derived category rules so rule hit statistics remain more accurate
 
 ### nftables backend
 
@@ -122,6 +123,7 @@ When evidence is ambiguous:
 - create separate IPv4 and IPv6 sets per category
 - scope matching to Docker container egress interfaces
 - install one or more per-category drop rules in the dedicated chain
+- keep the same category ordering policy as the iptables backend: domains first, ASNs after them
 
 ## Resolution Model
 
@@ -131,6 +133,7 @@ Source file conventions:
 
 Resolution behavior:
 - domains resolve to A and AAAA records
+- if `BLACKLIST_RESOLVER` is set, domains resolve through that explicit DNS server list instead of the host system resolver
 - ASNs expand to IPv4 and IPv6 prefixes through a cached RIPE Stat HTTPS lookup
 - wildcard domains are ignored with a warning
 - generated targets inside well-known local/private ranges are ignored with a warning

@@ -241,9 +241,11 @@ Current enforcement model:
 - dual-stack first: maintain separate IPv4 and IPv6 objects and rules
 - wildcard domain entries are ignored with a warning; only concrete hostnames are resolved
 - domain lists resolve to A and AAAA answers
+- if `BLACKLIST_RESOLVER` is set, domain lookups use that explicit DNS server list instead of the host system resolver
 - ASN lists expand to IPv4 and IPv6 prefixes via a cached HTTPS lookup against RIPE Stat
 - generated targets inside well-known local/private ranges are ignored with a warning so internal routing is not blacklisted by mistake
 - `iptables` backend maps per-category sets to `DOCKER-USER` rules in both `iptables` and `ip6tables`
+- generated blacklist rules are ordered with domain-derived categories before ASN-derived categories so broader ASN matches do not hide more specific domain hits in rule statistics
 - for the `iptables` backend, `DOCKER-USER` is normalized so the first rule is `RELATED,ESTABLISHED` accept and the last rule is `RETURN`
 - `nftables` backend maps per-category sets to rules in a dedicated Obscura-managed forward-hook table/chain
 - successful apply writes a persisted manifest under the configured state directory
@@ -401,7 +403,7 @@ Important upstream reference files:
 - The SOCKS5 module now supports configurable outbound family preference. `prefer_ipv6` has been live-validated; the remaining modes (`auto`, `ipv6_only`, `prefer_ipv4`, `ipv4_only`) are still worth validating explicitly.
 - The blacklist module must treat Docker presence as mandatory, but it must not assume that either `iptables`/`ipset` or `nft` is installed.
 - Wildcard domain entries in blacklist source files are intentionally ignored with a warning rather than expanded heuristically.
-- The blacklist module currently depends on the system resolver for domain lookups even if `BLACKLIST_RESOLVER` is set; custom resolver selection is not implemented yet.
+- The blacklist module supports an explicit `BLACKLIST_RESOLVER` override as a list of DNS server IP literals; if unset it still uses the host system resolver.
 - The blacklist module currently uses a RIPE Stat HTTPS lookup with a local cache for ASN expansion.
 - The blacklist module currently requires root privileges for `apply` and `verify`.
 - The blacklist module now has real `install-systemd` and `uninstall-systemd` helper commands in addition to the unit templates.
