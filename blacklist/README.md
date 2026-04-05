@@ -107,6 +107,7 @@ The scaffolded CLI owns these subcommands:
 - `apply`
   Resolve sources, render backend objects, and atomically apply the desired blacklist state.
   Current behavior also emits trace output while it resolves and updates backend state.
+  It also refuses to replace a previously populated managed set with an empty one when source entries still exist and resolution produced no usable targets.
 
 - `refresh`
   Alias for a periodic update run.

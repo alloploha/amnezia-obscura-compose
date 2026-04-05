@@ -8,7 +8,7 @@ import re
 import shlex
 import subprocess
 
-from obscura_blacklist.desired import DesiredState
+from obscura_blacklist.desired import DesiredCategory, DesiredState
 
 
 class BackendCommandError(RuntimeError):
@@ -524,6 +524,80 @@ def _parse_nft_set_elements(output: str) -> tuple[str, ...]:
         if value:
             values.append(value)
     return tuple(sorted(values))
+
+
+def _live_iptables_set_count(set_name: str) -> int:
+    try:
+        return len(_ipset_entries(set_name))
+    except BackendCommandError:
+        return 0
+
+
+def _live_nft_set_count(desired: DesiredState, set_name: str) -> int:
+    output = _nft_list_set_output(desired.nft_table_family, desired.nft_table_name, set_name)
+    if output is None:
+        return 0
+    return len(_parse_nft_set_elements(output))
+
+
+def _previous_category_entries_count(
+    previous_payload: dict[str, object] | None,
+    *,
+    set_name: str,
+    entries_key: str,
+) -> int:
+    if not isinstance(previous_payload, dict):
+        return 0
+    for category in _manifest_categories(previous_payload):
+        if category.get("set_name_v4") == set_name or category.get("set_name_v6") == set_name:
+            entries = category.get(entries_key)
+            if isinstance(entries, list):
+                return len(entries)
+    return 0
+
+
+def _family_target_count(category: DesiredCategory, family: str) -> int:
+    return len(category.ipv4_entries if family == "v4" else category.ipv6_entries)
+
+
+def guard_empty_replacements(
+    desired: DesiredState,
+    previous_payload: dict[str, object] | None,
+) -> list[str]:
+    hazards: list[str] = []
+
+    for category in desired.categories:
+        if not category.accepted_entries:
+            continue
+        if category.resolved_entry_count != 0:
+            continue
+
+        for family, set_name, entries_key in (
+            ("v4", category.set_name_v4, "ipv4_entries"),
+            ("v6", category.set_name_v6, "ipv6_entries"),
+        ):
+            if _family_target_count(category, family) != 0:
+                continue
+
+            if desired.backend_family == "iptables":
+                live_count = _live_iptables_set_count(set_name)
+            else:
+                live_count = _live_nft_set_count(desired, set_name)
+
+            previous_count = _previous_category_entries_count(
+                previous_payload,
+                set_name=set_name,
+                entries_key=entries_key,
+            )
+
+            if live_count > 0 or previous_count > 0:
+                hazards.append(
+                    f"{category.kind}:{category.name}:{family} resolved to an empty set while source entries still exist, "
+                    f"but the current/previous managed set contains records (live={live_count}, previous={previous_count}); "
+                    "refusing to replace it with an empty set"
+                )
+
+    return hazards
 
 
 def _verify_iptables(payload: dict[str, object]) -> list[str]:

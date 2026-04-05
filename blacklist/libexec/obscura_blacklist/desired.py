@@ -46,6 +46,8 @@ class DesiredCategory:
     accepted_entries: tuple[str, ...]
     ignored_wildcards: tuple[str, ...]
     invalid_entries: tuple[str, ...]
+    resolved_entry_count: int
+    unresolved_entry_count: int
     ipv4_entries: tuple[str, ...]
     ipv6_entries: tuple[str, ...]
     set_name_v4: str
@@ -277,6 +279,8 @@ def _resolve_category(
 ) -> DesiredCategory:
     ipv4_entries: list[str] = []
     ipv6_entries: list[str] = []
+    resolved_entry_count = 0
+    unresolved_entry_count = 0
 
     if trace is not None:
         trace(
@@ -289,6 +293,9 @@ def _resolve_category(
             resolved_v4, resolved_v6 = _resolve_domain(domain)
             if not resolved_v4 and not resolved_v6:
                 warnings.append(f"{category.path.name}: domain did not resolve: {domain}")
+                unresolved_entry_count += 1
+            else:
+                resolved_entry_count += 1
             ipv4_entries.extend(resolved_v4)
             ipv6_entries.extend(resolved_v6)
     else:
@@ -296,6 +303,9 @@ def _resolve_category(
             resolved_v4, resolved_v6 = _resolve_asn(asn, cache_dir, warnings)
             if not resolved_v4 and not resolved_v6:
                 warnings.append(f"{category.path.name}: ASN returned no prefixes: {asn}")
+                unresolved_entry_count += 1
+            else:
+                resolved_entry_count += 1
             ipv4_entries.extend(resolved_v4)
             ipv6_entries.extend(resolved_v6)
 
@@ -308,6 +318,8 @@ def _resolve_category(
         accepted_entries=category.accepted_entries,
         ignored_wildcards=category.ignored_wildcards,
         invalid_entries=category.invalid_entries,
+        resolved_entry_count=resolved_entry_count,
+        unresolved_entry_count=unresolved_entry_count,
         ipv4_entries=_filter_local_networks(
             ipv4_entries,
             category=category,

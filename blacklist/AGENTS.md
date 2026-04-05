@@ -52,6 +52,9 @@ Backend discovery, desired-state rendering, apply, verify, and flush exist, but 
 - Updates should be atomic where practical.
   Rebuild temporary objects first, then swap or replace to avoid partially applied states.
 
+- Empty replacement must be treated conservatively.
+  If source entries still exist but resolution produces no usable targets, apply should not replace a previously populated managed set with an empty one.
+
 - Persistence should be systemd-based.
   Boot-time apply and periodic refresh should be handled with systemd service/timer units.
 

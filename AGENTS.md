@@ -250,6 +250,7 @@ Current enforcement model:
 - verify compares live firewall state against the last successful persisted manifest
 - flush removes only Obscura-managed backend state and removes the persisted manifest when present
 - apply emits stage-by-stage trace output so long resolution or backend updates are visible
+- apply refuses to replace a previously populated managed set with an empty one when source entries still exist and resolution produced no usable targets
 - persistence and periodic refresh should eventually be handled by `systemd`
 
 Current module layout:

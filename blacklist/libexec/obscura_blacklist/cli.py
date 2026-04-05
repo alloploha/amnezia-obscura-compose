@@ -10,6 +10,7 @@ from obscura_blacklist.backends import (
     BackendCommandError,
     apply_desired_state,
     flush_state,
+    guard_empty_replacements,
     verify_manifest,
 )
 from obscura_blacklist.contract import COMMANDS, NOT_IMPLEMENTED
@@ -240,6 +241,12 @@ def _print_apply(inspection: Inspection) -> int:
             f"categories={len(desired.categories)}, ipv4={desired.total_ipv4_entries}, "
             f"ipv6={desired.total_ipv6_entries}"
         )
+        _trace("Checking empty-replacement safety")
+        hazards = guard_empty_replacements(desired, inspection.state.payload)
+        if hazards:
+            for hazard in hazards:
+                print(f"ERROR: {hazard}", file=sys.stderr)
+            return 1
         _trace("Applying backend state")
         messages = apply_desired_state(desired, inspection.state.payload, trace=_trace)
         _trace("Persisting manifest")
