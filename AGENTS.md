@@ -247,9 +247,11 @@ Current enforcement model:
 - for the `iptables` backend, `DOCKER-USER` is normalized so the first rule is `RELATED,ESTABLISHED` accept and the last rule is `RETURN`
 - `nftables` backend maps per-category sets to rules in a dedicated Obscura-managed forward-hook table/chain
 - successful apply writes a persisted manifest under the configured state directory
+- successful apply/refresh also write `last_good_targets.json` and `health.json` under the configured state directory
 - refresh re-runs the same safe update pipeline as apply and is intended to be the timer-oriented maintenance entrypoint
+- refresh/apply can reuse per-category last-known-good targets when fresh resolution produces no usable targets and the cached target set still matches the current source contents and freshness policy
 - verify compares live firewall state against the last successful persisted manifest
-- flush removes only Obscura-managed backend state and removes the persisted manifest when present
+- flush removes only Obscura-managed backend state and clears the persisted manifest, last-known-good target cache, and health state when present
 - apply emits stage-by-stage trace output so long resolution or backend updates are visible
 - apply refuses to replace a previously populated managed set with an empty one when source entries still exist and resolution produced no usable targets
 - install-systemd installs the launcher under `/usr/local/bin`, the Python package under `/usr/local/libexec/obscura-blacklist`, default config under `/etc/obscura-blacklist`, and enables the timer unit
@@ -402,7 +404,7 @@ Important upstream reference files:
 - The blacklist module currently depends on the system resolver for domain lookups even if `BLACKLIST_RESOLVER` is set; custom resolver selection is not implemented yet.
 - The blacklist module currently uses a RIPE Stat HTTPS lookup with a local cache for ASN expansion.
 - The blacklist module currently requires root privileges for `apply` and `verify`.
-- Systemd unit templates exist for blacklist persistence, but the `install-systemd` and `uninstall-systemd` helper commands are not implemented yet.
+- The blacklist module now has real `install-systemd` and `uninstall-systemd` helper commands in addition to the unit templates.
 
 ## Recommended Implementation Direction
 
@@ -432,7 +434,7 @@ Near-term service work now includes:
 - use `scripts/compose-amnezia.sh` when operating the stack with the Amnezia overlay
 - prefer a Python-based resolution/render core with thin shell wrappers for install/apply flows
 - keep blacklist enforcement host-side rather than forcing it into a privileged Compose service
-- harden blacklist apply semantics and add the remaining lifecycle commands (`install-systemd`, `uninstall-systemd`)
+- continue hardening blacklist refresh/restore semantics, especially around stale cache reuse and degraded-state reporting
 
 ## Documentation Rules For Future Agents
 

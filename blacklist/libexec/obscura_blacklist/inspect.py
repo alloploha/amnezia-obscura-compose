@@ -74,7 +74,15 @@ class StateInfo:
     metadata_path: Path
     present: bool
     payload: dict[str, object] | None
+    targets_path: Path
+    targets_present: bool
+    targets_payload: dict[str, object] | None
+    health_path: Path
+    health_present: bool
+    health_payload: dict[str, object] | None
     error: str | None = None
+    targets_error: str | None = None
+    health_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -501,25 +509,38 @@ def inspect_sources(config: LoadedConfig) -> tuple[tuple[CategoryInfo, ...], tup
     return tuple(categories), tuple(warnings), tuple(errors)
 
 
+def _load_json_state(path: Path) -> tuple[bool, dict[str, object] | None, str | None]:
+    if not path.exists():
+        return False, None, None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return True, None, str(exc)
+    return True, payload, None
+
+
 def inspect_state(config: LoadedConfig) -> StateInfo:
     metadata_path = config.effective_state_dir / "last_apply.json"
-    if not metadata_path.exists():
-        return StateInfo(metadata_path=metadata_path, present=False, payload=None)
+    targets_path = config.effective_state_dir / "last_good_targets.json"
+    health_path = config.effective_state_dir / "health.json"
 
-    try:
-        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        return StateInfo(
-            metadata_path=metadata_path,
-            present=True,
-            payload=None,
-            error=str(exc),
-        )
+    present, payload, error = _load_json_state(metadata_path)
+    targets_present, targets_payload, targets_error = _load_json_state(targets_path)
+    health_present, health_payload, health_error = _load_json_state(health_path)
 
     return StateInfo(
         metadata_path=metadata_path,
-        present=True,
+        present=present,
         payload=payload,
+        targets_path=targets_path,
+        targets_present=targets_present,
+        targets_payload=targets_payload,
+        health_path=health_path,
+        health_present=health_present,
+        health_payload=health_payload,
+        error=error,
+        targets_error=targets_error,
+        health_error=health_error,
     )
 
 

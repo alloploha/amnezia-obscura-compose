@@ -19,6 +19,8 @@ from obscura_blacklist.desired import (
     build_desired_state,
     load_manifest,
     parse_nft_table_spec,
+    save_health,
+    save_last_good_targets,
     save_manifest,
 )
 from obscura_blacklist.inspect import Inspection, inspect_runtime
@@ -213,6 +215,28 @@ def _print_status(inspection: Inspection) -> int:
     else:
         print("Last apply metadata: absent")
 
+    print(f"Last known good targets path: {inspection.state.targets_path}")
+    if inspection.state.targets_present and inspection.state.targets_payload is not None:
+        categories = inspection.state.targets_payload.get("categories", [])
+        category_count = len(categories) if isinstance(categories, list) else 0
+        print("Last known good targets: present")
+        print(f"  generated_at: {inspection.state.targets_payload.get('generated_at')}")
+        print(f"  categories: {category_count}")
+    elif inspection.state.targets_present and inspection.state.targets_error:
+        print(f"Last known good targets: unreadable ({inspection.state.targets_error})")
+    else:
+        print("Last known good targets: absent")
+
+    print(f"Health state path: {inspection.state.health_path}")
+    if inspection.state.health_present and inspection.state.health_payload is not None:
+        print("Health state: present")
+        for key, value in inspection.state.health_payload.items():
+            print(f"  {key}: {value}")
+    elif inspection.state.health_present and inspection.state.health_error:
+        print(f"Health state: unreadable ({inspection.state.health_error})")
+    else:
+        print("Health state: absent")
+
     return 0
 
 
@@ -236,7 +260,11 @@ def _run_update_command(inspection: Inspection, *, verb: str) -> int:
 
     try:
         _trace(f"{verb.capitalize()}: building desired state from sources")
-        desired, warnings = build_desired_state(inspection, trace=_trace)
+        desired, warnings = build_desired_state(
+            inspection,
+            previous_targets_payload=inspection.state.targets_payload,
+            trace=_trace,
+        )
         _trace(
             f"{verb.capitalize()}: desired state ready: backend={desired.backend_family}, "
             f"categories={len(desired.categories)}, ipv4={desired.total_ipv4_entries}, "
@@ -252,6 +280,14 @@ def _run_update_command(inspection: Inspection, *, verb: str) -> int:
         messages = apply_desired_state(desired, inspection.state.payload, trace=_trace)
         _trace(f"{verb.capitalize()}: persisting manifest")
         save_manifest(inspection.state.metadata_path, desired)
+        _trace(f"{verb.capitalize()}: persisting last-known-good targets")
+        save_last_good_targets(
+            inspection.state.targets_path,
+            desired,
+            inspection.state.targets_payload,
+        )
+        _trace(f"{verb.capitalize()}: persisting health state")
+        save_health(inspection.state.health_path, desired)
     except (BackendCommandError, OSError, RuntimeError, ValueError) as exc:
         print(f"ERROR: {verb} failed: {exc}", file=sys.stderr)
         return 1
@@ -263,6 +299,8 @@ def _run_update_command(inspection: Inspection, *, verb: str) -> int:
     print(f"IPv4 entries: {desired.total_ipv4_entries}")
     print(f"IPv6 entries: {desired.total_ipv6_entries}")
     print(f"Manifest written: {inspection.state.metadata_path}")
+    print(f"Last known good targets written: {inspection.state.targets_path}")
+    print(f"Health state written: {inspection.state.health_path}")
     if desired.docker_bridge_interfaces:
         print("Docker bridge interfaces: " + ", ".join(desired.docker_bridge_interfaces))
     else:
@@ -325,6 +363,8 @@ def _print_verify(inspection: Inspection) -> int:
 
 def _print_flush(inspection: Inspection) -> int:
     manifest_path = inspection.state.metadata_path
+    targets_path = inspection.state.targets_path
+    health_path = inspection.state.health_path
     manifest_payload = None
 
     if inspection.state.present and inspection.state.error:
@@ -357,14 +397,25 @@ def _print_flush(inspection: Inspection) -> int:
         return 1
 
     print("Flush completed.")
-    if manifest_payload is not None and manifest_path.exists():
+    removed_paths: list[Path] = []
+    for path, label in (
+        (manifest_path, "manifest"),
+        (targets_path, "last-known-good targets"),
+        (health_path, "health state"),
+    ):
+        if not path.exists():
+            continue
         try:
-            manifest_path.unlink()
-            print(f"Removed manifest: {manifest_path}")
+            path.unlink()
+            removed_paths.append(path)
+            print(f"Removed {label}: {path}")
         except OSError as exc:
-            print(f"WARNING: failed to remove manifest {manifest_path}: {exc}")
-    elif manifest_payload is None:
+            print(f"WARNING: failed to remove {label} {path}: {exc}")
+
+    if manifest_payload is None:
         print("No manifest was present; used backend-specific fallback cleanup.")
+    elif not removed_paths:
+        print("No persisted Obscura state files were removed.")
 
     for message in messages:
         print(f"INFO: {message}")

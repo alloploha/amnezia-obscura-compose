@@ -23,6 +23,7 @@ Current status:
 - config and example source lists exist
 - `check`, `status`, `apply`, `refresh`, `verify`, `flush`, `install-systemd`, and `uninstall-systemd` are implemented
 - systemd unit templates exist
+- successful apply/refresh now persist `last_apply.json`, `last_good_targets.json`, and `health.json`
 - remaining work is mostly operational hardening rather than missing commands
 
 Do not document the module as fully complete yet.
@@ -54,6 +55,9 @@ Backend discovery, desired-state rendering, apply, refresh, verify, flush, and s
 
 - Empty replacement must be treated conservatively.
   If source entries still exist but resolution produces no usable targets, apply should not replace a previously populated managed set with an empty one.
+
+- Boot-time restore should fail closed where practical.
+  If fresh resolution produces no usable targets but a matching last-known-good target set exists and is still within policy, the module should reuse that cached target set instead of restoring an empty ruleset after reboot.
 
 - Persistence should be systemd-based.
   Boot-time apply and periodic refresh should be handled with systemd service/timer units.
@@ -135,7 +139,9 @@ Resolution behavior:
 State behavior:
 - cache network-derived data in a cache directory
 - keep last successful rendered manifests in a state directory
-- record per-category counts for verification output
+- keep a backend-independent `last_good_targets.json` file for stale restore
+- keep a `health.json` file that reports whether the current applied state is fresh or degraded
+- record per-category counts and target origin metadata for verification and status output
 
 ## Module Layout
 
@@ -182,6 +188,11 @@ Expected host install locations:
 - state: `/var/lib/obscura-blacklist`
 - cache: `/var/cache/obscura-blacklist`
 - executable: `/usr/local/bin/obscura-blacklist`
+
+Important persisted state files:
+- `last_apply.json`
+- `last_good_targets.json`
+- `health.json`
 
 Expected systemd behavior:
 - one oneshot service to apply/refresh rules

@@ -7,7 +7,7 @@ COMMANDS = {
     "help": "Show usage and command summary.",
     "commands": "List supported commands and their contract.",
     "check": "Validate Docker, backend tooling, config, and sources without mutating firewall state.",
-    "status": "Report detected backend, Docker scope, categories, and last successful apply metadata.",
+    "status": "Report detected backend, Docker scope, categories, persisted apply metadata, restore cache, and health state.",
     "apply": "Resolve sources, render backend state, and apply the blacklist atomically.",
     "refresh": "Periodic refresh entrypoint; same intent as apply with cache-aware updates.",
     "verify": "Confirm live firewall state matches the last rendered Obscura-managed state.",

@@ -18,6 +18,7 @@ Current repo status:
 - config and example source lists present
 - `check`, `status`, `apply`, `refresh`, `verify`, `flush`, `install-systemd`, and `uninstall-systemd` implemented
 - systemd unit templates present
+- successful apply/refresh persist `last_apply.json`, `last_good_targets.json`, and `health.json`
 - remaining work is mostly operational hardening
 
 ## Intended Behavior
@@ -108,16 +109,19 @@ The scaffolded CLI owns these subcommands:
   Resolve sources, render backend objects, and atomically apply the desired blacklist state.
   Current behavior also emits trace output while it resolves and updates backend state.
   It also refuses to replace a previously populated managed set with an empty one when source entries still exist and resolution produced no usable targets.
+  If fresh resolution produces no usable targets but a matching last-known-good target set is available and fresh enough, it reuses that cached target set instead of failing open after reboot.
 
 - `refresh`
   Alias for a periodic update run.
   Intended to reuse cached data where valid and refresh expired network-derived data.
+  It writes degraded health state when one or more categories had to use stale last-known-good targets.
 
 - `verify`
   Confirm that the live firewall state matches the last rendered state.
 
 - `flush`
   Remove only Obscura-managed firewall rules and sets.
+  It also removes the persisted manifest, last-known-good target cache, and health state files.
 
 - `print-default-config`
   Print the default config file to stdout.
@@ -154,6 +158,15 @@ Key settings:
 
 - `BLACKLIST_RULE_DIRECTION`
   default match direction, currently `dst`
+
+- `BLACKLIST_ALLOW_STALE_RESTORE`
+  allow reuse of last-known-good per-category targets when fresh resolution produces no usable targets
+
+- `BLACKLIST_MAX_STALE_AGE`
+  maximum age in seconds for reusing last-known-good targets
+
+- `BLACKLIST_FAIL_IF_ALL_STALE`
+  fail the run if every category would be restored from stale cached targets
 
 - `BLACKLIST_STATE_DIR`
   persistent rendered-state directory
@@ -215,6 +228,25 @@ Current uninstall behavior:
 - removes the installed unit files
 - reloads systemd
 - preserves installed config, cache, state, launcher, and Python package
+
+## Persistent State
+
+The blacklist module writes these state files under the configured state directory:
+
+- `last_apply.json`
+  audit and verification record for the last successful applied ruleset
+
+- `last_good_targets.json`
+  backend-independent last-known-good IPv4 and IPv6 targets per category
+
+- `health.json`
+  freshness/degraded state for the current applied ruleset
+
+Stale restore rules:
+- only reuse cached targets if the current category source hash still matches
+- only reuse cached targets if they are within `BLACKLIST_MAX_STALE_AGE`
+- log a warning when stale targets are reused
+- prefer fresh resolution whenever fresh usable targets exist
 
 ## Next Steps
 
