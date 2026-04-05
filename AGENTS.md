@@ -50,6 +50,7 @@ As of the current repo state:
 - the top-level `socks5proxy/` directory contains the 3proxy-based SOCKS5 module
 - the top-level `blacklist/` directory contains a host-side blacklist module, config, category source files, CLI entrypoint, and systemd unit templates
 - `scripts/` contains helper scripts for Docker Compose plugin installation, Docker IPv6 enablement, and blacklist install/uninstall wrappers
+  There is also a refresh wrapper for operators who edit blacklist source files and want to reapply rules immediately.
   The blacklist install wrapper also performs systemd/Docker preflight checks, then a post-install `check` and immediate refresh; the uninstall wrapper disables/stops the blacklist units, waits for them to go inactive, then flushes live state before removing systemd integration.
 - `amnezia-client/` is an upstream Git submodule used as reference/source material for protocol container scripts and compatibility work
 
@@ -380,6 +381,7 @@ Important current files:
 - `blacklist/systemd/obscura-blacklist.timer`
 - `scripts/enable-docker-ipv6.sh`
 - `scripts/install-blacklist.sh`
+- `scripts/refresh-blacklist.sh`
 - `scripts/uninstall-blacklist.sh`
 - `scripts/install-docker-compose-plugin.sh`
 - `scripts/externalize-amnezia-socks5proxy.sh`

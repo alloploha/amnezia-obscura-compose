@@ -162,6 +162,12 @@ This wrapper flushes Obscura-managed blacklist rules and sets before removing th
 It disables and stops the blacklist timer, stops the blacklist service, waits for both units to become inactive, then attempts `flush` before removing the systemd integration.
 If `flush` fails, uninstall still continues so partially broken firewall tooling does not block service removal.
 
+After editing blacklist domain or ASN source files, refresh the live rules and sets with:
+
+```bash
+sudo sh scripts/refresh-blacklist.sh
+```
+
 ## Choosing A Deployment Mode
 
 Use one of these modes:
