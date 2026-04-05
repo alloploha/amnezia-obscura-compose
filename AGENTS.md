@@ -14,6 +14,7 @@ Do not let `README.md` or code drift away from what is documented here.
 ## Project Identity
 
 Project name: Obscura
+Current project version: `0.1.0`
 
 Repository purpose:
 Build a Docker Compose based, Amnezia-compatible server-side deployment layer for self-hosted VPN infrastructure.
@@ -342,6 +343,9 @@ The key task is orchestration redesign, not just Dockerfile duplication.
 ## Codebase Map
 
 Top-level areas:
+- `VERSION`
+  Canonical project version string in `Major.Minor.Patch` format.
+
 - `compose.yaml`
   Current Compose definition for Obscura resources.
 
@@ -444,6 +448,7 @@ When working on this repo:
 - start by reading this file and `README.md`
 - verify claims against the actual code before updating docs
 - keep "current implementation" separate from "planned platform"
+- if you make a release-relevant change, consider whether `VERSION` should be bumped in the same work
 - if you add or remove services, update both this file and `README.md`
 - if you change networks, subnets, ports, or compatibility assumptions, update this file immediately
 - if you introduce a new architectural decision, capture it here so future agents do not have to rediscover it

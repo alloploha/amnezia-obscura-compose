@@ -2,6 +2,8 @@
 
 Obscura is a Docker Compose based, Amnezia-compatible server-side deployment layer for self-hosted VPN infrastructure.
 
+Current project version: `0.1.0`
+
 The final goal of the project is to provide a Compose-native backend for Amnezia-style deployments:
 - containerized VPN and DNS services
 - better Docker integration

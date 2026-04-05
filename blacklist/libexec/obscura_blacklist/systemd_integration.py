@@ -13,6 +13,7 @@ from obscura_blacklist.config import INSTALL_CONFIG_DIR, INSTALL_CONFIG_PATH, IN
 SYSTEMD_UNIT_DIR = Path("/etc/systemd/system")
 INSTALLED_LIBEXEC_ROOT = Path("/usr/local/libexec/obscura-blacklist")
 INSTALLED_PACKAGE_DIR = INSTALLED_LIBEXEC_ROOT / "obscura_blacklist"
+INSTALLED_VERSION_PATH = INSTALLED_LIBEXEC_ROOT / "VERSION"
 INSTALLED_BIN_PATH = Path("/usr/local/bin/obscura-blacklist")
 SERVICE_UNIT_NAME = "obscura-blacklist.service"
 TIMER_UNIT_NAME = "obscura-blacklist.timer"
@@ -124,6 +125,12 @@ def install_systemd(blacklist_root: Path) -> list[str]:
 
     _copy_tree(repo_package_dir, INSTALLED_PACKAGE_DIR)
     messages.append(f"installed Python package: {INSTALLED_PACKAGE_DIR}")
+
+    repo_version_path = repo_blacklist_root.parent / "VERSION"
+    if repo_version_path.exists():
+        shutil.copy2(repo_version_path, INSTALLED_VERSION_PATH)
+        os.chmod(INSTALLED_VERSION_PATH, 0o644)
+        messages.append(f"installed version file: {INSTALLED_VERSION_PATH}")
 
     _write_text(INSTALLED_BIN_PATH, _installed_launcher_content(), 0o755)
     messages.append(f"installed launcher: {INSTALLED_BIN_PATH}")
