@@ -254,22 +254,49 @@ def _find_iptables_return_rule_num(binary: str, chain: str) -> int | None:
     return None
 
 
+def _list_iptables_chain_lines(binary: str, chain: str) -> list[str]:
+    result = _run([binary, "-L", chain, "--line-numbers", "-n"], check=False)
+    if result.returncode != 0:
+        stderr = result.stderr.lower()
+        if "no chain" in stderr or "does a chain exist" in stderr:
+            raise BackendCommandError(f"{binary} chain not found: {chain}")
+        raise BackendCommandError(
+            f"{binary} -L {chain} --line-numbers -n: {result.stderr.strip() or result.stdout.strip()}"
+        )
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def _base_rule_line_numbers(binary: str, chain: str) -> tuple[list[int], list[int]]:
+    accept_rule_nums: list[int] = []
+    return_rule_nums: list[int] = []
+
+    for line in _list_iptables_chain_lines(binary, chain):
+        parts = line.split()
+        if len(parts) < 2 or not parts[0].isdigit():
+            continue
+        rule_num = int(parts[0])
+        target = parts[1]
+        if target == "ACCEPT" and "ctstate" in parts and "RELATED,ESTABLISHED" in parts:
+            accept_rule_nums.append(rule_num)
+        elif target == "RETURN" and len(parts) >= 6:
+            return_rule_nums.append(rule_num)
+
+    return accept_rule_nums, return_rule_nums
+
+
+def _delete_iptables_rule_num(binary: str, chain: str, rule_num: int) -> None:
+    _run([binary, "-D", chain, str(rule_num)])
+
+
 def _delete_iptables_rule_spec(binary: str, chain: str, rule_spec: str) -> None:
     _run([binary, "-D", chain, *shlex.split(rule_spec)])
 
 
 def _normalize_iptables_base_rules(binary: str, chain: str) -> None:
-    rules = _iptables_rules(binary, chain)
-    base_accept_suffix = "-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT"
-    base_return_suffix = "-j RETURN"
+    accept_rule_nums, return_rule_nums = _base_rule_line_numbers(binary, chain)
 
-    accept_specs = [line.split(maxsplit=2)[2] for line in rules if line == f"-A {chain} {base_accept_suffix}"]
-    return_specs = [line.split(maxsplit=2)[2] for line in rules if line == f"-A {chain} {base_return_suffix}"]
-
-    for rule_spec in accept_specs:
-        _delete_iptables_rule_spec(binary, chain, rule_spec)
-    for rule_spec in return_specs:
-        _delete_iptables_rule_spec(binary, chain, rule_spec)
+    for rule_num in sorted(accept_rule_nums + return_rule_nums, reverse=True):
+        _delete_iptables_rule_num(binary, chain, rule_num)
 
     _run(_iptables_base_accept_argv(binary, "-I", chain))
     _run(_iptables_base_return_argv(binary, "-A", chain))
