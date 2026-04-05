@@ -97,7 +97,7 @@ Optional Amnezia compatibility network:
   Dockerfile, entrypoint, and baseline config for the opt-in SOCKS5 proxy service.
 
 - `scripts/`
-  Helper scripts for Docker Compose plugin installation, Docker IPv6 enablement, Amnezia compatibility Compose usage, and SOCKS5 externalization.
+  Helper scripts for Docker Compose plugin installation, Docker IPv6 enablement, blacklist install/uninstall, Amnezia compatibility Compose usage, and SOCKS5 externalization.
 
 - `amnezia-client/`
   Upstream Amnezia client submodule kept as reference/source material for protocol container scripts and compatibility work.
@@ -138,6 +138,24 @@ cd amnezia-obscura-compose
 ```
 
 Using `--recurse-submodules` is recommended because the repo keeps the upstream Amnezia client as a submodule for compatibility work and future protocol integration.
+
+### 4. Install The Blacklist Module (Optional)
+
+To install the host-side blacklist service, timer, launcher, and default config:
+
+```bash
+sudo sh scripts/install-blacklist.sh
+```
+
+This wrapper also performs an immediate blacklist refresh after installation so rules and sets are populated right away.
+
+To remove the installed blacklist systemd integration later:
+
+```bash
+sudo sh scripts/uninstall-blacklist.sh
+```
+
+This wrapper flushes Obscura-managed blacklist rules and sets before removing the systemd integration.
 
 ## Choosing A Deployment Mode
 
