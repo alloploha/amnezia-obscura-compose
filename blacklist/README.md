@@ -16,9 +16,9 @@ It is intended to run directly on the host and manage host firewall state.
 Current repo status:
 - module layout present
 - config and example source lists present
-- `check`, `status`, `apply`, `verify`, and `flush` implemented
+- `check`, `status`, `apply`, `refresh`, `verify`, `flush`, `install-systemd`, and `uninstall-systemd` implemented
 - systemd unit templates present
-- remaining lifecycle helpers still pending
+- remaining work is mostly operational hardening
 
 ## Intended Behavior
 
@@ -134,12 +134,10 @@ Implemented today:
 - `check`
 - `status`
 - `apply`
+- `refresh`
 - `verify`
 - `flush`
 - `print-default-config`
-
-Still pending:
-- `refresh`
 - `install-systemd`
 - `uninstall-systemd`
 
@@ -202,6 +200,21 @@ The intended persistence model is:
   periodic refresh timer
 
 The service should run after Docker is available and after the network is up.
+
+Current install behavior:
+- installs launcher at `/usr/local/bin/obscura-blacklist`
+- installs Python package under `/usr/local/libexec/obscura-blacklist`
+- installs default config at `/etc/obscura-blacklist/blacklist.conf` if it does not already exist
+- installs missing default source files under `/etc/obscura-blacklist/sources`
+- installs systemd units under `/etc/systemd/system`
+- enables and starts `obscura-blacklist.timer`
+
+Current uninstall behavior:
+- disables and stops the timer
+- stops the service
+- removes the installed unit files
+- reloads systemd
+- preserves installed config, cache, state, launcher, and Python package
 
 ## Next Steps
 

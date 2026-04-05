@@ -21,12 +21,12 @@ It is intended to run on the host and manage host firewall state.
 Current status:
 - module layout exists
 - config and example source lists exist
-- `check`, `status`, `apply`, `verify`, and `flush` are implemented
+- `check`, `status`, `apply`, `refresh`, `verify`, `flush`, `install-systemd`, and `uninstall-systemd` are implemented
 - systemd unit templates exist
-- remaining lifecycle commands are still pending
+- remaining work is mostly operational hardening rather than missing commands
 
 Do not document the module as fully complete yet.
-Backend discovery, desired-state rendering, apply, verify, and flush exist, but refresh/systemd install helpers and further hardening are still pending.
+Backend discovery, desired-state rendering, apply, refresh, verify, flush, and systemd install helpers exist, but further hardening is still pending.
 
 ## Design Constraints
 
@@ -171,8 +171,7 @@ The module CLI should own these subcommands:
 - `uninstall-systemd`
 
 Current implementation state:
-- implemented: `help`, `commands`, `check`, `status`, `apply`, `verify`, `flush`, `print-default-config`
-- pending: `refresh`, `install-systemd`, `uninstall-systemd`
+- implemented: `help`, `commands`, `check`, `status`, `apply`, `refresh`, `verify`, `flush`, `print-default-config`, `install-systemd`, `uninstall-systemd`
 
 Keep the contract stable unless there is a strong reason to change it.
 

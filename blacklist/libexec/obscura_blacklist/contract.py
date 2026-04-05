@@ -19,7 +19,4 @@ COMMANDS = {
 
 
 NOT_IMPLEMENTED = {
-    "refresh",
-    "install-systemd",
-    "uninstall-systemd",
 }

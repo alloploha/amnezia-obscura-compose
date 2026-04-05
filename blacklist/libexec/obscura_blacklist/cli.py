@@ -22,6 +22,7 @@ from obscura_blacklist.desired import (
     save_manifest,
 )
 from obscura_blacklist.inspect import Inspection, inspect_runtime
+from obscura_blacklist.systemd_integration import install_systemd, uninstall_systemd
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -219,7 +220,7 @@ def _trace(message: str) -> None:
     print(message, flush=True)
 
 
-def _print_apply(inspection: Inspection) -> int:
+def _run_update_command(inspection: Inspection, *, verb: str) -> int:
     errors = inspection.check_errors()
     if errors:
         for error in errors:
@@ -234,27 +235,28 @@ def _print_apply(inspection: Inspection) -> int:
         return 1
 
     try:
-        _trace("Building desired state from sources")
+        _trace(f"{verb.capitalize()}: building desired state from sources")
         desired, warnings = build_desired_state(inspection, trace=_trace)
         _trace(
-            f"Desired state ready: backend={desired.backend_family}, "
+            f"{verb.capitalize()}: desired state ready: backend={desired.backend_family}, "
             f"categories={len(desired.categories)}, ipv4={desired.total_ipv4_entries}, "
             f"ipv6={desired.total_ipv6_entries}"
         )
-        _trace("Checking empty-replacement safety")
+        _trace(f"{verb.capitalize()}: checking empty-replacement safety")
         hazards = guard_empty_replacements(desired, inspection.state.payload)
         if hazards:
             for hazard in hazards:
                 print(f"ERROR: {hazard}", file=sys.stderr)
             return 1
-        _trace("Applying backend state")
+        _trace(f"{verb.capitalize()}: applying backend state")
         messages = apply_desired_state(desired, inspection.state.payload, trace=_trace)
-        _trace("Persisting manifest")
+        _trace(f"{verb.capitalize()}: persisting manifest")
         save_manifest(inspection.state.metadata_path, desired)
     except (BackendCommandError, OSError, RuntimeError, ValueError) as exc:
-        print(f"ERROR: apply failed: {exc}", file=sys.stderr)
+        print(f"ERROR: {verb} failed: {exc}", file=sys.stderr)
         return 1
 
+    print(f"{verb.capitalize()} completed.")
     print(f"Applied backend: {desired.backend_family}")
     print(f"Backend variant: {desired.backend_variant or 'unknown'}")
     print(f"Categories applied: {len(desired.categories)}")
@@ -271,6 +273,14 @@ def _print_apply(inspection: Inspection) -> int:
     for warning in inspection.backend.warnings + inspection.source_warnings + warnings:
         print(f"WARNING: {warning}")
     return 0
+
+
+def _print_apply(inspection: Inspection) -> int:
+    return _run_update_command(inspection, verb="apply")
+
+
+def _print_refresh(inspection: Inspection) -> int:
+    return _run_update_command(inspection, verb="refresh")
 
 
 def _print_verify(inspection: Inspection) -> int:
@@ -361,6 +371,32 @@ def _print_flush(inspection: Inspection) -> int:
     return 0
 
 
+def _print_install_systemd() -> int:
+    try:
+        messages = install_systemd(REPO_ROOT)
+    except (BackendCommandError, OSError, RuntimeError, ValueError) as exc:
+        print(f"ERROR: install-systemd failed: {exc}", file=sys.stderr)
+        return 1
+
+    print("Systemd integration installed.")
+    for message in messages:
+        print(f"INFO: {message}")
+    return 0
+
+
+def _print_uninstall_systemd() -> int:
+    try:
+        messages = uninstall_systemd()
+    except (BackendCommandError, OSError, RuntimeError, ValueError) as exc:
+        print(f"ERROR: uninstall-systemd failed: {exc}", file=sys.stderr)
+        return 1
+
+    print("Systemd integration removed.")
+    for message in messages:
+        print(f"INFO: {message}")
+    return 0
+
+
 def _not_implemented(command: str) -> int:
     print(
         f"Command '{command}' is part of the blacklist module contract but is not implemented yet.",
@@ -400,6 +436,12 @@ def main(argv: list[str] | None = None) -> int:
     if command == "print-default-config":
         return _print_default_config()
 
+    if command == "install-systemd":
+        return _print_install_systemd()
+
+    if command == "uninstall-systemd":
+        return _print_uninstall_systemd()
+
     try:
         inspection = _load_inspection(config_path)
     except (OSError, ValueError) as exc:
@@ -414,6 +456,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "apply":
         return _print_apply(inspection)
+
+    if command == "refresh":
+        return _print_refresh(inspection)
 
     if command == "verify":
         return _print_verify(inspection)

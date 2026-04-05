@@ -8,6 +8,8 @@ from pathlib import Path
 
 
 INSTALL_SOURCES_DIR = Path("/etc/obscura-blacklist/sources")
+INSTALL_CONFIG_DIR = Path("/etc/obscura-blacklist")
+INSTALL_CONFIG_PATH = INSTALL_CONFIG_DIR / "blacklist.conf"
 INSTALL_STATE_DIR = Path("/var/lib/obscura-blacklist")
 INSTALL_CACHE_DIR = Path("/var/cache/obscura-blacklist")
 

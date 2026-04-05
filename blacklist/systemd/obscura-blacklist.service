@@ -6,7 +6,7 @@ After=network-online.target docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/obscura-blacklist apply
+ExecStart=/usr/local/bin/obscura-blacklist --config /etc/obscura-blacklist/blacklist.conf refresh
 
 [Install]
 WantedBy=multi-user.target

@@ -218,8 +218,8 @@ Important:
 ### Blacklist Module
 
 Implemented module status:
-- implemented host-side CLI with real `check`, `status`, `apply`, `verify`, and `flush` commands
-- remaining planned work includes `refresh`, systemd install helpers, and operational hardening
+- implemented host-side CLI with real `check`, `status`, `apply`, `refresh`, `verify`, `flush`, `install-systemd`, and `uninstall-systemd` commands
+- remaining planned work includes operational hardening
 
 Purpose:
 - optional host-side egress filtering for Docker container traffic
@@ -247,10 +247,13 @@ Current enforcement model:
 - for the `iptables` backend, `DOCKER-USER` is normalized so the first rule is `RELATED,ESTABLISHED` accept and the last rule is `RETURN`
 - `nftables` backend maps per-category sets to rules in a dedicated Obscura-managed forward-hook table/chain
 - successful apply writes a persisted manifest under the configured state directory
+- refresh re-runs the same safe update pipeline as apply and is intended to be the timer-oriented maintenance entrypoint
 - verify compares live firewall state against the last successful persisted manifest
 - flush removes only Obscura-managed backend state and removes the persisted manifest when present
 - apply emits stage-by-stage trace output so long resolution or backend updates are visible
 - apply refuses to replace a previously populated managed set with an empty one when source entries still exist and resolution produced no usable targets
+- install-systemd installs the launcher under `/usr/local/bin`, the Python package under `/usr/local/libexec/obscura-blacklist`, default config under `/etc/obscura-blacklist`, and enables the timer unit
+- uninstall-systemd removes only the installed systemd integration; it does not purge config, cache, state, launcher, or Python package files
 - persistence and periodic refresh should eventually be handled by `systemd`
 
 Current module layout:
@@ -429,7 +432,7 @@ Near-term service work now includes:
 - use `scripts/compose-amnezia.sh` when operating the stack with the Amnezia overlay
 - prefer a Python-based resolution/render core with thin shell wrappers for install/apply flows
 - keep blacklist enforcement host-side rather than forcing it into a privileged Compose service
-- harden blacklist apply semantics and add the remaining lifecycle commands (`refresh`, `install-systemd`, `uninstall-systemd`)
+- harden blacklist apply semantics and add the remaining lifecycle commands (`install-systemd`, `uninstall-systemd`)
 
 ## Documentation Rules For Future Agents
 
