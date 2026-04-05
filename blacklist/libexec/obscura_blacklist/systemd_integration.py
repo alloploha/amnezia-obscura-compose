@@ -56,7 +56,7 @@ def _service_unit_content() -> str:
     return f"""[Unit]
 Description=Obscura blacklist refresh
 Documentation=https://github.com/alloploha/amnezia-obscura-compose
-Wants=network-online.target
+Wants=network-online.target docker.service
 After=network-online.target docker.service
 
 [Service]
@@ -65,6 +65,7 @@ ExecStart={INSTALLED_BIN_PATH} --config {INSTALL_CONFIG_PATH} refresh
 
 [Install]
 WantedBy=multi-user.target
+WantedBy=docker.service
 """
 
 
@@ -74,8 +75,8 @@ Description=Periodic refresh for Obscura blacklist
 Documentation=https://github.com/alloploha/amnezia-obscura-compose
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=30min
+OnCalendar=*-*-* 00,12:00:00
+Persistent=true
 Unit=obscura-blacklist.service
 
 [Install]
@@ -145,8 +146,11 @@ def install_systemd(blacklist_root: Path) -> list[str]:
     messages.append(f"installed unit: {timer_path}")
 
     _run([systemctl_path, "daemon-reload"])
-    _run([systemctl_path, "enable", "--now", TIMER_UNIT_NAME])
-    messages.append(f"enabled and started timer: {TIMER_UNIT_NAME}")
+    _run([systemctl_path, "enable", SERVICE_UNIT_NAME, TIMER_UNIT_NAME])
+    messages.append(f"enabled service: {SERVICE_UNIT_NAME}")
+    messages.append(f"enabled timer: {TIMER_UNIT_NAME}")
+    _run([systemctl_path, "start", TIMER_UNIT_NAME])
+    messages.append(f"started timer: {TIMER_UNIT_NAME}")
 
     return messages
 
@@ -162,6 +166,9 @@ def uninstall_systemd() -> list[str]:
 
     _run([systemctl_path, "disable", "--now", TIMER_UNIT_NAME], check=False)
     messages.append(f"disabled timer: {TIMER_UNIT_NAME}")
+
+    _run([systemctl_path, "disable", SERVICE_UNIT_NAME], check=False)
+    messages.append(f"disabled service: {SERVICE_UNIT_NAME}")
 
     _run([systemctl_path, "stop", SERVICE_UNIT_NAME], check=False)
     messages.append(f"stopped service: {SERVICE_UNIT_NAME}")

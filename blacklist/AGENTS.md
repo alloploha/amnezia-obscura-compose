@@ -199,7 +199,8 @@ Important persisted state files:
 
 Expected systemd behavior:
 - one oneshot service to apply/refresh rules
-- one timer for periodic refresh
+- enable that service for boot and Docker starts so rules are restored as early as practical after restart
+- one timer for low-frequency periodic refresh
 - service ordered after `docker.service` and `network-online.target`
 
 ## Implementation Direction

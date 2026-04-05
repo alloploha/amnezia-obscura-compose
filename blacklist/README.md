@@ -216,10 +216,10 @@ Each source file should map to one independent category and one pair of IPv4/IPv
 
 The intended persistence model is:
 - `obscura-blacklist.service`
-  oneshot apply/refresh unit
+  oneshot apply/refresh unit, enabled for boot and Docker starts
 
 - `obscura-blacklist.timer`
-  periodic refresh timer
+  periodic refresh timer for twice-daily maintenance
 
 The service should run after Docker is available and after the network is up.
 
@@ -229,6 +229,7 @@ Current install behavior:
 - installs default config at `/etc/obscura-blacklist/blacklist.conf` if it does not already exist
 - installs missing default source files under `/etc/obscura-blacklist/sources`
 - installs systemd units under `/etc/systemd/system`
+- enables `obscura-blacklist.service` for boot and Docker starts
 - enables and starts `obscura-blacklist.timer`
 
 Current uninstall behavior:

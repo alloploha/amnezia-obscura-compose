@@ -3,8 +3,8 @@ Description=Periodic refresh for Obscura blacklist
 Documentation=https://github.com/alloploha/amnezia-obscura-compose
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=30min
+OnCalendar=*-*-* 00,12:00:00
+Persistent=true
 Unit=obscura-blacklist.service
 
 [Install]

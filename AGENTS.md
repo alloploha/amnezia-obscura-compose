@@ -253,12 +253,13 @@ Current enforcement model:
 - successful apply writes a persisted manifest under the configured state directory
 - successful apply/refresh also write `last_good_targets.json` and `health.json` under the configured state directory
 - refresh re-runs the same safe update pipeline as apply and is intended to be the timer-oriented maintenance entrypoint
+- the installed systemd service is enabled for boot and Docker starts so rules are restored as early as practical after system or Docker restart; the timer is only low-frequency maintenance
 - refresh/apply can reuse per-category last-known-good targets when fresh resolution produces no usable targets and the cached target set still matches the current source contents and freshness policy
 - verify compares live firewall state against the last successful persisted manifest
 - flush removes only Obscura-managed backend state and clears the persisted manifest, last-known-good target cache, and health state when present
 - apply emits stage-by-stage trace output so long resolution or backend updates are visible
 - apply refuses to replace a previously populated managed set with an empty one when source entries still exist and resolution produced no usable targets
-- install-systemd installs the launcher under `/usr/local/bin`, the Python package under `/usr/local/libexec/obscura-blacklist`, default config under `/etc/obscura-blacklist`, and enables the timer unit
+- install-systemd installs the launcher under `/usr/local/bin`, the Python package under `/usr/local/libexec/obscura-blacklist`, default config under `/etc/obscura-blacklist`, enables the service for boot and Docker starts, and enables the timer unit
 - uninstall-systemd removes only the installed systemd integration; it does not purge config, cache, state, launcher, or Python package files
 - persistence and periodic refresh should eventually be handled by `systemd`
 

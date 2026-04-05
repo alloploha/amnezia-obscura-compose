@@ -150,6 +150,7 @@ sudo sh scripts/install-blacklist.sh
 This wrapper also performs an immediate blacklist refresh after installation so rules and sets are populated right away.
 It fails early with a clear message if `python3`, `docker`, or `systemctl` is missing, if systemd is not the active init system, or if the Docker daemon is not reachable.
 After installing, it also runs a post-install `check` before the initial `refresh`.
+The installed blacklist service is enabled for boot and Docker starts so rules are restored as early as practical after system or Docker restart.
 
 To remove the installed blacklist systemd integration later:
 

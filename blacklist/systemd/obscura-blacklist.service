@@ -1,7 +1,7 @@
 [Unit]
 Description=Obscura blacklist refresh
 Documentation=https://github.com/alloploha/amnezia-obscura-compose
-Wants=network-online.target
+Wants=network-online.target docker.service
 After=network-online.target docker.service
 
 [Service]
@@ -10,3 +10,4 @@ ExecStart=/usr/local/bin/obscura-blacklist --config /etc/obscura-blacklist/black
 
 [Install]
 WantedBy=multi-user.target
+WantedBy=docker.service
