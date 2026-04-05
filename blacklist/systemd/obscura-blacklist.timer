@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodic refresh for Obscura blacklist
+Documentation=https://github.com/alloploha/amnezia-obscura-compose
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=30min
+Unit=obscura-blacklist.service
+
+[Install]
+WantedBy=timers.target

@@ -39,6 +39,7 @@ Current implementation status:
 - implemented: private DNS resolver based on Unbound
 - implemented as an opt-in profile: Compose-native SOCKS5 proxy module based on 3proxy
 - partially prepared: Compose project layout, helper scripts, reserved volumes for future protocol services
+- scaffolded but not yet implemented: optional host-side blacklist module for Docker container egress filtering
 - not yet implemented as Compose services: WireGuard, AWG, Xray, OpenVPN, IPsec, and other VPN containers
 
 As of the current repo state:
@@ -46,6 +47,7 @@ As of the current repo state:
 - `compose.yaml` also contains an opt-in `socks5proxy` profile-backed service
 - the top-level `dns/` directory contains the actual service Dockerfile and Unbound configuration
 - the top-level `socks5proxy/` directory contains the 3proxy-based SOCKS5 module
+- the top-level `blacklist/` directory contains a host-side blacklist module scaffold, config, and category source files
 - `scripts/` contains helper scripts for Docker Compose plugin installation and Docker IPv6 enablement
 - `amnezia-client/` is an upstream Git submodule used as reference/source material for protocol container scripts and compatibility work
 
@@ -110,6 +112,9 @@ Current Compose resources:
   - internal network `obscura-dns`
   - optional external compatibility network `amnezia-dns-net` provided only by `compose.amnezia.yaml`
   - optional Amnezia-compatible SOCKS5 overlay behavior in `compose.amnezia.yaml` using `/srv/amnezia/socks5proxy/conf`
+
+Current non-Compose host-side modules:
+- optional blacklist module in `blacklist/`
 
 ### DNS Resolver
 
@@ -210,6 +215,39 @@ Current DNS container addresses:
 Important:
 - treat the code as authoritative unless and until it is intentionally changed
 
+### Blacklist Module
+
+Implemented module status:
+- scaffold only, not yet enforcing rules on the host
+
+Purpose:
+- optional host-side egress filtering for Docker container traffic
+- driven by declarative domain and ASN category files under `blacklist/config/sources`
+- intended to block container destinations by generating kernel firewall objects rather than per-domain application logic
+
+Planned backend model:
+- backend auto-detection with explicit override support
+- `iptables` backend requires `iptables`, `ip6tables`, and `ipset`
+- `nftables` backend requires `nft`
+- scripts must stop with a clear error if Docker is unavailable
+- scripts must not assume either firewall stack is installed
+
+Planned enforcement model:
+- dual-stack first: maintain separate IPv4 and IPv6 objects and rules
+- wildcard domain entries are ignored with a warning; only concrete hostnames are resolved
+- domain lists resolve to A and AAAA answers
+- ASN lists expand to IPv4 and IPv6 prefixes
+- `iptables` backend maps per-category sets to `DOCKER-USER` rules in both `iptables` and `ip6tables`
+- `nftables` backend maps per-category sets to rules in a dedicated Obscura-managed forward-hook table/chain
+- persistence and periodic refresh should be handled by `systemd`
+
+Planned module layout:
+- `blacklist/bin/obscura-blacklist`
+- `blacklist/libexec/obscura_blacklist/`
+- `blacklist/systemd/`
+- `blacklist/config/blacklist.conf`
+- `blacklist/config/sources/`
+
 ### Security Model
 
 Current DNS security posture:
@@ -294,6 +332,9 @@ Top-level areas:
 - `socks5proxy/`
   Compose-native SOCKS5 module with a baked baseline config and a runtime config renderer.
 
+- `blacklist/`
+  Host-side blacklist module scaffold, operator documentation, config, category source lists, and future systemd units.
+
 - `scripts/`
   Host-side helper scripts for setup tasks.
 
@@ -308,6 +349,10 @@ Important current files:
 - `socks5proxy/Dockerfile`
 - `socks5proxy/3proxy.base.cfg`
 - `socks5proxy/entrypoint.sh`
+- `blacklist/config/blacklist.conf`
+- `blacklist/bin/obscura-blacklist`
+- `blacklist/systemd/obscura-blacklist.service`
+- `blacklist/systemd/obscura-blacklist.timer`
 - `scripts/enable-docker-ipv6.sh`
 - `scripts/install-docker-compose-plugin.sh`
 - `scripts/externalize-amnezia-socks5proxy.sh`
@@ -337,6 +382,9 @@ Important upstream reference files:
   This split is intentional for now but may be worth unifying later.
 - Full automatic compatibility with Amnezia-driven SOCKS5 port changes is not possible in normal bridge mode because Compose port publishing is static.
 - The SOCKS5 module now supports configurable outbound family preference. `prefer_ipv6` has been live-validated; the remaining modes (`auto`, `ipv6_only`, `prefer_ipv4`, `ipv4_only`) are still worth validating explicitly.
+- The blacklist module is currently only a scaffold and command contract. Host firewall mutation, resolver logic, ASN expansion, and systemd installation are not implemented yet.
+- The blacklist module must treat Docker presence as mandatory, but it must not assume that either `iptables`/`ipset` or `nft` is installed.
+- Wildcard domain entries in blacklist source files are intentionally ignored with a warning rather than expanded heuristically.
 
 ## Recommended Implementation Direction
 
@@ -364,6 +412,9 @@ Near-term service work now includes:
 - document the recommended host bind-mount layout for service state under `/srv/amnezia/...`
 - use the existing one-shot SOCKS5 migration helper when converting a live Amnezia `amnezia-socks5proxy` container to host-backed `conf/` and `logs/`
 - use `scripts/compose-amnezia.sh` when operating the stack with the Amnezia overlay
+- implement the blacklist host toolchain behind the new scaffold and command contract
+- prefer a Python-based resolution/render core with thin shell wrappers for install/apply flows
+- keep blacklist enforcement host-side rather than forcing it into a privileged Compose service
 
 ## Documentation Rules For Future Agents
 

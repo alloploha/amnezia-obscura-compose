@@ -1,0 +1,6 @@
+# VK-AS, RU
+# LLC VK is a Russian company operating in the technology industry, primarily known for its social media platform and related services.
+AS47764
+# VKONTAKTE-SPB-AS vk.com, RU
+# VKontakte Ltd is a Russian social networking service provider, operating the popular platform vk.com.
+AS47541

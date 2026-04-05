@@ -1,0 +1,12 @@
+vk.com
+vk.ru
+api.vk.ru
+cloud.vk.ru
+workspace.vk.ru
+dev.vk.ru
+ads.vk.ru
+targer.vk.ru
+id.vk.ru
+analytics.vk.ru
+login.vk.ru
+m.vk.ru

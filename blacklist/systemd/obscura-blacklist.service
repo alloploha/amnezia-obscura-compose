@@ -1,0 +1,12 @@
+[Unit]
+Description=Obscura blacklist refresh
+Documentation=https://github.com/alloploha/amnezia-obscura-compose
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/obscura-blacklist apply
+
+[Install]
+WantedBy=multi-user.target

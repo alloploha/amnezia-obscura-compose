@@ -1,0 +1,4 @@
+mail.ru
+m.mail.ru
+api.mail.ru
+*.mail.ru

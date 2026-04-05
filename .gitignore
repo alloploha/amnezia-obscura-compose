@@ -3,3 +3,7 @@
 *.log
 *~
 .codex
+__pycache__/
+*.py[cod]
+blacklist/cache/
+blacklist/state/

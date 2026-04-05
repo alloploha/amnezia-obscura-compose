@@ -1,0 +1,189 @@
+# Obscura Blacklist
+
+`obscura-blacklist` is an optional host-side filtering module for Docker-hosted infrastructure.
+
+It converts declarative source files:
+- domain lists
+- ASN lists
+
+into enforced firewall objects that block matching outbound destinations from containers.
+
+This module is not a Compose service.
+It is intended to run directly on the host and manage host firewall state.
+
+## Current Status
+
+Current repo status:
+- module layout scaffolded
+- config and example source lists present
+- CLI command contract scaffolded
+- systemd unit templates present
+- enforcement logic not implemented yet
+
+## Intended Behavior
+
+Supported backend families:
+- `iptables` with `ipset`
+- native `nftables`
+
+Backend classification rule:
+- `iptables` in `nf_tables` compatibility mode is still classified as `iptables`
+- the tool should report the frontend variant separately, for example `legacy` or `nf_tables`
+- native `nftables` means rules are managed through the `nft` CLI and dedicated nft objects
+
+Auto-detection policy:
+- inspect both frontend families when possible
+- prefer live Docker firewall evidence over raw binary presence
+- treat `DOCKER-USER` in `iptables` as strong evidence for the `iptables` frontend
+- if Docker evidence points to one frontend but that backend is unusable, fail with a mismatch error instead of silently switching to the other frontend
+- when evidence is ambiguous, prefer fully usable `iptables` first, then native `nftables`
+
+What gets blocked:
+- destinations derived from concrete domain names
+- destinations derived from ASN-owned prefixes
+
+Where rules are installed:
+- `DOCKER-USER` for the `iptables` backend
+- a dedicated Obscura-managed forward chain for the `nftables` backend
+
+Dual-stack model:
+- IPv4 and IPv6 are handled separately
+- each category renders separate IPv4 and IPv6 objects as required by the backend
+
+Wildcard handling:
+- wildcard domains such as `*.example.com` are ignored
+- the tool should emit a warning for them
+
+Docker requirement:
+- Docker is required
+- commands should fail clearly if Docker is not available
+
+Firewall tooling requirement:
+- the tool must not assume `iptables`, `ip6tables`, `ipset`, or `nft` is installed
+- it should detect a usable backend and fail cleanly if none is available
+
+## Module Layout
+
+- `bin/obscura-blacklist`
+  User-facing CLI entrypoint
+
+- `libexec/obscura_blacklist/`
+  Python implementation modules
+
+- `config/blacklist.conf`
+  Default config values
+
+- `config/sources/`
+  Per-category domain and ASN files
+
+- `systemd/`
+  Example units for boot-time apply and periodic refresh
+
+## Command Contract
+
+The scaffolded CLI owns these subcommands:
+
+- `help`
+  Show usage and command summary.
+
+- `commands`
+  Print the stable command list with one-line descriptions.
+
+- `check`
+  Validate local prerequisites without mutating firewall state.
+  Intended checks include Docker reachability, backend candidates, Docker firewall evidence, final backend selection reason, config parsing, and source validation.
+
+- `status`
+  Report configured backend mode, backend candidates and usability, detected Docker firewall evidence, final backend selection, Docker interfaces, source categories, and last successful apply metadata.
+
+- `apply`
+  Resolve sources, render backend objects, and atomically apply the desired blacklist state.
+
+- `refresh`
+  Alias for a periodic update run.
+  Intended to reuse cached data where valid and refresh expired network-derived data.
+
+- `verify`
+  Confirm that the live firewall state matches the last rendered state.
+
+- `flush`
+  Remove only Obscura-managed firewall rules and sets.
+
+- `print-default-config`
+  Print the default config file to stdout.
+
+- `install-systemd`
+  Install or print instructions for the systemd service and timer integration.
+
+- `uninstall-systemd`
+  Remove installed systemd integration owned by the module.
+
+Until the implementation is complete, non-help commands are contract placeholders and may return a "not implemented" exit.
+
+## Config Model
+
+The default config lives at [`config/blacklist.conf`](/home/alexey/amnezia-obscura-compose/blacklist/config/blacklist.conf).
+
+Key settings:
+- `BLACKLIST_BACKEND`
+  `auto`, `iptables`, or `nftables`
+
+- `BLACKLIST_TARGET`
+  logical enforcement target, currently intended for Docker forward traffic
+
+- `BLACKLIST_RULE_DIRECTION`
+  default match direction, currently `dst`
+
+- `BLACKLIST_STATE_DIR`
+  persistent rendered-state directory
+
+- `BLACKLIST_CACHE_DIR`
+  cache directory for DNS and ASN expansion data
+
+- `BLACKLIST_IPTABLES_CHAIN`
+  iptables chain name, currently `DOCKER-USER`
+
+- `BLACKLIST_NFT_TABLE`
+  nft table name
+
+- `BLACKLIST_NFT_CHAIN`
+  nft chain name
+
+- `BLACKLIST_SOURCES_DIR`
+  source directory containing category files
+
+## Source Files
+
+Current source naming:
+- `domains-*.txt`
+- `asns-*.txt`
+
+Rules:
+- comments and blank lines are ignored
+- concrete domains are accepted
+- wildcard domains are ignored with a warning
+- ASNs such as `AS47764` are accepted
+
+Each source file should map to one independent category and one pair of IPv4/IPv6 rendered objects.
+
+## Systemd Model
+
+The intended persistence model is:
+- `obscura-blacklist.service`
+  oneshot apply/refresh unit
+
+- `obscura-blacklist.timer`
+  periodic refresh timer
+
+The service should run after Docker is available and after the network is up.
+
+## Next Steps
+
+Implementation should proceed in this order:
+1. parse config and sources
+2. detect Docker and firewall backend
+3. resolve domains and expand ASNs with cache support
+4. render `iptables`/`ipset` or `nftables` objects
+5. apply atomically
+6. verify and report status
+7. install systemd persistence
