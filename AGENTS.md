@@ -38,8 +38,8 @@ The long-term target is a full server stack where DNS and VPN services are manag
 Current implementation status:
 - implemented: private DNS resolver based on Unbound
 - implemented as an opt-in profile: Compose-native SOCKS5 proxy module based on 3proxy
+- implemented as a host-side module: blacklist inspection, backend auto-detection, apply, and verify flows for Docker egress filtering
 - partially prepared: Compose project layout, helper scripts, reserved volumes for future protocol services
-- scaffolded but not yet implemented: optional host-side blacklist module for Docker container egress filtering
 - not yet implemented as Compose services: WireGuard, AWG, Xray, OpenVPN, IPsec, and other VPN containers
 
 As of the current repo state:
@@ -47,7 +47,7 @@ As of the current repo state:
 - `compose.yaml` also contains an opt-in `socks5proxy` profile-backed service
 - the top-level `dns/` directory contains the actual service Dockerfile and Unbound configuration
 - the top-level `socks5proxy/` directory contains the 3proxy-based SOCKS5 module
-- the top-level `blacklist/` directory contains a host-side blacklist module scaffold, config, and category source files
+- the top-level `blacklist/` directory contains a host-side blacklist module, config, category source files, CLI entrypoint, and systemd unit templates
 - `scripts/` contains helper scripts for Docker Compose plugin installation and Docker IPv6 enablement
 - `amnezia-client/` is an upstream Git submodule used as reference/source material for protocol container scripts and compatibility work
 
@@ -218,30 +218,41 @@ Important:
 ### Blacklist Module
 
 Implemented module status:
-- scaffold only, not yet enforcing rules on the host
+- implemented host-side CLI with real `check`, `status`, `apply`, `verify`, and `flush` commands
+- remaining planned work includes `refresh`, systemd install helpers, and operational hardening
 
 Purpose:
 - optional host-side egress filtering for Docker container traffic
 - driven by declarative domain and ASN category files under `blacklist/config/sources`
 - intended to block container destinations by generating kernel firewall objects rather than per-domain application logic
 
-Planned backend model:
+Current backend model:
 - backend auto-detection with explicit override support
 - `iptables` backend requires `iptables`, `ip6tables`, and `ipset`
 - `nftables` backend requires `nft`
 - scripts must stop with a clear error if Docker is unavailable
 - scripts must not assume either firewall stack is installed
+- frontend family and implementation variant are tracked separately
+- `iptables` in `nf_tables` compatibility mode is still treated as the `iptables` backend
+- auto-detection prefers live Docker firewall evidence over raw binary presence
+- if Docker evidence strongly points to one frontend but that backend is unusable, commands should fail rather than silently switching
 
-Planned enforcement model:
+Current enforcement model:
 - dual-stack first: maintain separate IPv4 and IPv6 objects and rules
 - wildcard domain entries are ignored with a warning; only concrete hostnames are resolved
 - domain lists resolve to A and AAAA answers
-- ASN lists expand to IPv4 and IPv6 prefixes
+- ASN lists expand to IPv4 and IPv6 prefixes via a cached HTTPS lookup against RIPE Stat
+- generated targets inside well-known local/private ranges are ignored with a warning so internal routing is not blacklisted by mistake
 - `iptables` backend maps per-category sets to `DOCKER-USER` rules in both `iptables` and `ip6tables`
+- for the `iptables` backend, `DOCKER-USER` is normalized so the first rule is `RELATED,ESTABLISHED` accept and the last rule is `RETURN`
 - `nftables` backend maps per-category sets to rules in a dedicated Obscura-managed forward-hook table/chain
-- persistence and periodic refresh should be handled by `systemd`
+- successful apply writes a persisted manifest under the configured state directory
+- verify compares live firewall state against the last successful persisted manifest
+- flush removes only Obscura-managed backend state and removes the persisted manifest when present
+- apply emits stage-by-stage trace output so long resolution or backend updates are visible
+- persistence and periodic refresh should eventually be handled by `systemd`
 
-Planned module layout:
+Current module layout:
 - `blacklist/bin/obscura-blacklist`
 - `blacklist/libexec/obscura_blacklist/`
 - `blacklist/systemd/`
@@ -333,7 +344,7 @@ Top-level areas:
   Compose-native SOCKS5 module with a baked baseline config and a runtime config renderer.
 
 - `blacklist/`
-  Host-side blacklist module scaffold, operator documentation, config, category source lists, and future systemd units.
+  Host-side blacklist module with operator documentation, config, category source lists, Python implementation, CLI entrypoint, and systemd unit templates.
 
 - `scripts/`
   Host-side helper scripts for setup tasks.
@@ -382,9 +393,12 @@ Important upstream reference files:
   This split is intentional for now but may be worth unifying later.
 - Full automatic compatibility with Amnezia-driven SOCKS5 port changes is not possible in normal bridge mode because Compose port publishing is static.
 - The SOCKS5 module now supports configurable outbound family preference. `prefer_ipv6` has been live-validated; the remaining modes (`auto`, `ipv6_only`, `prefer_ipv4`, `ipv4_only`) are still worth validating explicitly.
-- The blacklist module is currently only a scaffold and command contract. Host firewall mutation, resolver logic, ASN expansion, and systemd installation are not implemented yet.
 - The blacklist module must treat Docker presence as mandatory, but it must not assume that either `iptables`/`ipset` or `nft` is installed.
 - Wildcard domain entries in blacklist source files are intentionally ignored with a warning rather than expanded heuristically.
+- The blacklist module currently depends on the system resolver for domain lookups even if `BLACKLIST_RESOLVER` is set; custom resolver selection is not implemented yet.
+- The blacklist module currently uses a RIPE Stat HTTPS lookup with a local cache for ASN expansion.
+- The blacklist module currently requires root privileges for `apply` and `verify`.
+- Systemd unit templates exist for blacklist persistence, but the `install-systemd` and `uninstall-systemd` helper commands are not implemented yet.
 
 ## Recommended Implementation Direction
 
@@ -412,9 +426,9 @@ Near-term service work now includes:
 - document the recommended host bind-mount layout for service state under `/srv/amnezia/...`
 - use the existing one-shot SOCKS5 migration helper when converting a live Amnezia `amnezia-socks5proxy` container to host-backed `conf/` and `logs/`
 - use `scripts/compose-amnezia.sh` when operating the stack with the Amnezia overlay
-- implement the blacklist host toolchain behind the new scaffold and command contract
 - prefer a Python-based resolution/render core with thin shell wrappers for install/apply flows
 - keep blacklist enforcement host-side rather than forcing it into a privileged Compose service
+- harden blacklist apply semantics and add the remaining lifecycle commands (`refresh`, `install-systemd`, `uninstall-systemd`)
 
 ## Documentation Rules For Future Agents
 

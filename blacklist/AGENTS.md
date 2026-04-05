@@ -19,13 +19,14 @@ It is intended to run on the host and manage host firewall state.
 ## Current Status
 
 Current status:
-- scaffolded module layout exists
+- module layout exists
 - config and example source lists exist
-- command contract exists
+- `check`, `status`, `apply`, `verify`, and `flush` are implemented
 - systemd unit templates exist
-- enforcement logic is not implemented yet
+- remaining lifecycle commands are still pending
 
-Do not document the module as functional until backend discovery, resolution, rendering, apply, verify, and cleanup paths really work.
+Do not document the module as fully complete yet.
+Backend discovery, desired-state rendering, apply, verify, and flush exist, but refresh/systemd install helpers and further hardening are still pending.
 
 ## Design Constraints
 
@@ -104,6 +105,8 @@ When evidence is ambiguous:
 - install both `iptables` and `ip6tables` rules
 - default match direction is destination-based
 - `iptables-nft` is still managed as an `iptables` frontend, not as native `nftables`
+- normalize `DOCKER-USER` so the first rule is `-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT`
+- normalize `DOCKER-USER` so the last rule is `-j RETURN`
 
 ### nftables backend
 
@@ -121,8 +124,9 @@ Source file conventions:
 
 Resolution behavior:
 - domains resolve to A and AAAA records
-- ASNs expand to IPv4 and IPv6 prefixes
+- ASNs expand to IPv4 and IPv6 prefixes through a cached RIPE Stat HTTPS lookup
 - wildcard domains are ignored with a warning
+- generated targets inside well-known local/private ranges are ignored with a warning
 - empty lines and comments are ignored
 
 State behavior:
@@ -163,7 +167,10 @@ The module CLI should own these subcommands:
 - `install-systemd`
 - `uninstall-systemd`
 
-Current scaffold behavior may expose the contract before enforcement logic exists.
+Current implementation state:
+- implemented: `help`, `commands`, `check`, `status`, `apply`, `verify`, `flush`, `print-default-config`
+- pending: `refresh`, `install-systemd`, `uninstall-systemd`
+
 Keep the contract stable unless there is a strong reason to change it.
 
 ## Operator Model

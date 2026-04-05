@@ -6,8 +6,20 @@ import sys
 from pathlib import Path
 
 from obscura_blacklist import __version__
+from obscura_blacklist.backends import (
+    BackendCommandError,
+    apply_desired_state,
+    flush_state,
+    verify_manifest,
+)
 from obscura_blacklist.contract import COMMANDS, NOT_IMPLEMENTED
 from obscura_blacklist.config import load_config
+from obscura_blacklist.desired import (
+    build_desired_state,
+    load_manifest,
+    parse_nft_table_spec,
+    save_manifest,
+)
 from obscura_blacklist.inspect import Inspection, inspect_runtime
 
 
@@ -19,7 +31,7 @@ def _usage() -> str:
     commands = "\n".join(f"  {name:<18} {desc}" for name, desc in COMMANDS.items())
     return (
         "Usage: obscura-blacklist [--config PATH] <command>\n\n"
-        "Scaffolded host-side Docker egress blacklist CLI.\n\n"
+        "Host-side Docker egress blacklist CLI.\n\n"
         "Commands:\n"
         f"{commands}\n"
     )
@@ -202,6 +214,146 @@ def _print_status(inspection: Inspection) -> int:
     return 0
 
 
+def _trace(message: str) -> None:
+    print(message, flush=True)
+
+
+def _print_apply(inspection: Inspection) -> int:
+    errors = inspection.check_errors()
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        return 1
+
+    if inspection.state.present and inspection.state.error:
+        print(
+            f"ERROR: existing manifest is unreadable: {inspection.state.error}",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        _trace("Building desired state from sources")
+        desired, warnings = build_desired_state(inspection, trace=_trace)
+        _trace(
+            f"Desired state ready: backend={desired.backend_family}, "
+            f"categories={len(desired.categories)}, ipv4={desired.total_ipv4_entries}, "
+            f"ipv6={desired.total_ipv6_entries}"
+        )
+        _trace("Applying backend state")
+        messages = apply_desired_state(desired, inspection.state.payload, trace=_trace)
+        _trace("Persisting manifest")
+        save_manifest(inspection.state.metadata_path, desired)
+    except (BackendCommandError, OSError, RuntimeError, ValueError) as exc:
+        print(f"ERROR: apply failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Applied backend: {desired.backend_family}")
+    print(f"Backend variant: {desired.backend_variant or 'unknown'}")
+    print(f"Categories applied: {len(desired.categories)}")
+    print(f"IPv4 entries: {desired.total_ipv4_entries}")
+    print(f"IPv6 entries: {desired.total_ipv6_entries}")
+    print(f"Manifest written: {inspection.state.metadata_path}")
+    if desired.docker_bridge_interfaces:
+        print("Docker bridge interfaces: " + ", ".join(desired.docker_bridge_interfaces))
+    else:
+        print("Docker bridge interfaces: none detected")
+
+    for message in messages:
+        print(f"INFO: {message}")
+    for warning in inspection.backend.warnings + inspection.source_warnings + warnings:
+        print(f"WARNING: {warning}")
+    return 0
+
+
+def _print_verify(inspection: Inspection) -> int:
+    manifest_path = inspection.state.metadata_path
+    if not manifest_path.exists():
+        print(f"ERROR: no manifest found at {manifest_path}", file=sys.stderr)
+        return 1
+
+    try:
+        payload = load_manifest(manifest_path)
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: failed to read manifest: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        errors = verify_manifest(payload)
+    except (BackendCommandError, OSError, RuntimeError, ValueError) as exc:
+        print(f"ERROR: verify failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Manifest: {manifest_path}")
+    print(f"Backend family: {payload.get('backend_family')}")
+    print(f"Backend variant: {payload.get('backend_variant') or 'unknown'}")
+    print(f"Generated at: {payload.get('generated_at')}")
+
+    if inspection.backend.selected and inspection.backend.selected != payload.get("backend_family"):
+        print(
+            "WARNING: current backend auto-detection does not match the manifest backend "
+            f"({inspection.backend.selected} vs {payload.get('backend_family')})"
+        )
+    for warning in inspection.backend.warnings:
+        print(f"WARNING: {warning}")
+
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        return 1
+
+    print("Verification succeeded.")
+    return 0
+
+
+def _print_flush(inspection: Inspection) -> int:
+    manifest_path = inspection.state.metadata_path
+    manifest_payload = None
+
+    if inspection.state.present and inspection.state.error:
+        print(
+            f"ERROR: existing manifest is unreadable: {inspection.state.error}",
+            file=sys.stderr,
+        )
+        return 1
+
+    if manifest_path.exists():
+        try:
+            manifest_payload = load_manifest(manifest_path)
+        except (OSError, ValueError) as exc:
+            print(f"ERROR: failed to read manifest: {exc}", file=sys.stderr)
+            return 1
+
+    try:
+        nft_family, nft_table = parse_nft_table_spec(
+            inspection.config.values["BLACKLIST_NFT_TABLE"]
+        )
+        messages = flush_state(
+            manifest_payload=manifest_payload,
+            selected_backend=inspection.backend.selected,
+            configured_chain=inspection.config.values["BLACKLIST_IPTABLES_CHAIN"],
+            configured_nft_family=nft_family,
+            configured_nft_table=nft_table,
+        )
+    except (BackendCommandError, OSError, RuntimeError, ValueError) as exc:
+        print(f"ERROR: flush failed: {exc}", file=sys.stderr)
+        return 1
+
+    print("Flush completed.")
+    if manifest_payload is not None and manifest_path.exists():
+        try:
+            manifest_path.unlink()
+            print(f"Removed manifest: {manifest_path}")
+        except OSError as exc:
+            print(f"WARNING: failed to remove manifest {manifest_path}: {exc}")
+    elif manifest_payload is None:
+        print("No manifest was present; used backend-specific fallback cleanup.")
+
+    for message in messages:
+        print(f"INFO: {message}")
+    return 0
+
+
 def _not_implemented(command: str) -> int:
     print(
         f"Command '{command}' is part of the blacklist module contract but is not implemented yet.",
@@ -252,6 +404,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "status":
         return _print_status(inspection)
+
+    if command == "apply":
+        return _print_apply(inspection)
+
+    if command == "verify":
+        return _print_verify(inspection)
+
+    if command == "flush":
+        return _print_flush(inspection)
 
     if command in NOT_IMPLEMENTED:
         return _not_implemented(command)

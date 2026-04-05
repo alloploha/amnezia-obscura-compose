@@ -14,11 +14,11 @@ It is intended to run directly on the host and manage host firewall state.
 ## Current Status
 
 Current repo status:
-- module layout scaffolded
+- module layout present
 - config and example source lists present
-- CLI command contract scaffolded
+- `check`, `status`, `apply`, `verify`, and `flush` implemented
 - systemd unit templates present
-- enforcement logic not implemented yet
+- remaining lifecycle helpers still pending
 
 ## Intended Behavior
 
@@ -46,6 +46,10 @@ Where rules are installed:
 - `DOCKER-USER` for the `iptables` backend
 - a dedicated Obscura-managed forward chain for the `nftables` backend
 
+iptables chain shape:
+- first rule: `-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT`
+- last rule: `-j RETURN`
+
 Dual-stack model:
 - IPv4 and IPv6 are handled separately
 - each category renders separate IPv4 and IPv6 objects as required by the backend
@@ -53,6 +57,10 @@ Dual-stack model:
 Wildcard handling:
 - wildcard domains such as `*.example.com` are ignored
 - the tool should emit a warning for them
+
+Local route safety:
+- generated targets inside well-known local/private ranges are ignored with a warning
+- this protects Docker bridge networks, loopback, link-local space, and private/ULA routing from accidental blacklisting
 
 Docker requirement:
 - Docker is required
@@ -98,6 +106,7 @@ The scaffolded CLI owns these subcommands:
 
 - `apply`
   Resolve sources, render backend objects, and atomically apply the desired blacklist state.
+  Current behavior also emits trace output while it resolves and updates backend state.
 
 - `refresh`
   Alias for a periodic update run.
@@ -118,7 +127,20 @@ The scaffolded CLI owns these subcommands:
 - `uninstall-systemd`
   Remove installed systemd integration owned by the module.
 
-Until the implementation is complete, non-help commands are contract placeholders and may return a "not implemented" exit.
+Implemented today:
+- `help`
+- `commands`
+- `check`
+- `status`
+- `apply`
+- `verify`
+- `flush`
+- `print-default-config`
+
+Still pending:
+- `refresh`
+- `install-systemd`
+- `uninstall-systemd`
 
 ## Config Model
 
@@ -163,6 +185,9 @@ Rules:
 - concrete domains are accepted
 - wildcard domains are ignored with a warning
 - ASNs such as `AS47764` are accepted
+
+Current ASN expansion implementation:
+- cached HTTPS lookup against RIPE Stat announced-prefix data
 
 Each source file should map to one independent category and one pair of IPv4/IPv6 rendered objects.
 
