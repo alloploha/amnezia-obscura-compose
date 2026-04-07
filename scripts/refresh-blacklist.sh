@@ -10,11 +10,11 @@ MODE="installed"
 
 usage() {
     cat <<EOF
-Usage: sudo sh $0 [--installed|--repo]
+Usage: sudo sh $0 [--installed|--copy]
 
 Modes:
   --installed  Refresh using /etc/obscura-blacklist/blacklist.conf and /etc/obscura-blacklist/sources (default)
-  --repo       Copy repo source files into /etc/obscura-blacklist/sources, then refresh the installed blacklist
+  --copy       Copy repo source files into /etc/obscura-blacklist/sources, then refresh the installed blacklist
 EOF
 }
 
@@ -57,8 +57,11 @@ while [ "$#" -gt 0 ]; do
         --installed)
             MODE="installed"
             ;;
+        --copy)
+            MODE="copy"
+            ;;
         --repo)
-            MODE="repo"
+            MODE="copy"
             ;;
         -h|--help)
             usage
@@ -79,7 +82,7 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-if [ "$MODE" = "repo" ]; then
+if [ "$MODE" = "copy" ]; then
     copy_repo_sources_into_installed_dir
 fi
 

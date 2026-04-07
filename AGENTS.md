@@ -14,7 +14,7 @@ Do not let `README.md` or code drift away from what is documented here.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.3.0`
+Current project version: `0.4.1`
 
 Version file:
 - the parent repository root contains `VERSION`
@@ -33,6 +33,24 @@ Agent directive:
 - if the work changes the effective project version, update `VERSION` in the same work whenever feasible
 - do not change `major`, `minor`, or `patch` outside this policy
 - keep documentation, code references, and packaging metadata aligned with `VERSION`
+
+## Compatibility Debt Policy
+
+When a user-facing or operator-facing behavior should eventually change in a breaking way, but the current work keeps backward compatibility for now:
+- keep a clear written record of that deferred breaking cleanup in this file
+- describe what compatibility code, aliases, legacy flags, shims, fallback behavior, or transitional paths should be removed later
+- note why the cleanup is deferred and what future breaking change should absorb it
+
+Agent directive:
+- if you intentionally keep compatibility code only to avoid a breaking change in the current release line, record that deferred removal here in the same work whenever feasible
+- do not silently leave transitional compatibility behavior undocumented
+- when the next real breaking release happens and `major` is increased, review the recorded deferred compatibility items and remove the obsolete compatibility code as part of that breaking-change work
+- when such compatibility code is removed in a major release, update this file to clear or revise the corresponding deferred record
+
+Current deferred compatibility items:
+- `scripts/refresh-blacklist.sh` accepts `--repo` as a backward-compatible alias for `--copy`
+  This alias exists only to preserve the previously introduced flag spelling without forcing an immediate breaking change.
+  Remove the `--repo` alias when the next real major-version breaking change is made.
 
 Repository purpose:
 Build a Docker Compose based, Amnezia-compatible server-side deployment layer for self-hosted VPN infrastructure.
@@ -69,7 +87,7 @@ As of the current repo state:
 - the top-level `blacklist/` directory contains a host-side blacklist module, config, category source files, CLI entrypoint, and systemd unit templates
 - `scripts/` contains helper scripts for Docker Compose plugin installation, Docker IPv6 enablement, and blacklist install/uninstall wrappers
   There is also a refresh wrapper for operators who edit blacklist source files and want to reapply rules immediately.
-  By default the refresh wrapper targets the installed blacklist config under `/etc/obscura-blacklist`; with `--repo` it first copies repo blacklist source files into `/etc/obscura-blacklist/sources`, then runs the normal installed refresh.
+  By default the refresh wrapper targets the installed blacklist config under `/etc/obscura-blacklist`; with `--copy` it first copies repo blacklist source files into `/etc/obscura-blacklist/sources`, then runs the normal installed refresh.
   The blacklist install wrapper also performs systemd/Docker preflight checks, then a post-install `check` and immediate refresh; the uninstall wrapper disables/stops the blacklist units, waits for them to go inactive, then flushes live state before removing systemd integration.
 - `amnezia-client/` is an upstream Git submodule used as reference/source material for protocol container scripts and compatibility work
 

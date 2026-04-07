@@ -217,7 +217,8 @@ Expected host install locations:
 
 Refresh wrapper behavior:
 - `scripts/refresh-blacklist.sh` with no extra arguments refreshes the installed config at `/etc/obscura-blacklist/blacklist.conf` and the installed sources under `/etc/obscura-blacklist/sources`
-- `scripts/refresh-blacklist.sh --repo` copies source files from `blacklist/config/sources` into `/etc/obscura-blacklist/sources` and then runs the normal installed refresh through `/etc/obscura-blacklist/blacklist.conf`
+- `scripts/refresh-blacklist.sh --copy` copies source files from `blacklist/config/sources` into `/etc/obscura-blacklist/sources` and then runs the normal installed refresh through `/etc/obscura-blacklist/blacklist.conf`
+- `scripts/refresh-blacklist.sh --repo` remains accepted as a backward-compatible alias for `--copy`, but `--copy` is the preferred user-facing flag
 
 Important persisted state files:
 - `last_apply.json`

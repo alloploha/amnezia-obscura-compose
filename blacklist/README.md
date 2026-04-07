@@ -84,10 +84,10 @@ It uses:
 If you want to copy blacklist source file changes from the cloned repository into the installed blacklist and refresh them in one step, use:
 
 ```bash
-sudo sh scripts/refresh-blacklist.sh --repo
+sudo sh scripts/refresh-blacklist.sh --copy
 ```
 
-In `--repo` mode, the script copies the repo source files from:
+In `--copy` mode, the script copies the repo source files from:
 - `blacklist/config/sources/`
 
 into:

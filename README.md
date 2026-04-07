@@ -2,7 +2,7 @@
 
 Obscura is a Docker Compose based, Amnezia-compatible server-side deployment layer for self-hosted VPN infrastructure.
 
-Current project version: `0.3.0`
+Current project version: `0.4.1`
 
 The final goal of the project is to provide a Compose-native backend for Amnezia-style deployments:
 - containerized VPN and DNS services
@@ -172,10 +172,10 @@ By default, this refreshes the installed blacklist config and source files under
 If you want to test changes directly from the cloned repository tree, use:
 
 ```bash
-sudo sh scripts/refresh-blacklist.sh --repo
+sudo sh scripts/refresh-blacklist.sh --copy
 ```
 
-In `--repo` mode, the script copies repo blacklist source files into `/etc/obscura-blacklist/sources/` and then runs the normal installed refresh.
+In `--copy` mode, the script copies repo blacklist source files into `/etc/obscura-blacklist/sources/` and then runs the normal installed refresh.
 
 ## Choosing A Deployment Mode
 

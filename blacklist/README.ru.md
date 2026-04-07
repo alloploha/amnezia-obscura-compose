@@ -82,10 +82,10 @@ sudo sh scripts/refresh-blacklist.sh
 Если нужно скопировать изменения source-файлов из клонированного репозитория в установленный blacklist и сразу применить их, используйте:
 
 ```bash
-sudo sh scripts/refresh-blacklist.sh --repo
+sudo sh scripts/refresh-blacklist.sh --copy
 ```
 
-В режиме `--repo` скрипт копирует source-файлы из репозитория:
+В режиме `--copy` скрипт копирует source-файлы из репозитория:
 - `blacklist/config/sources/`
 
 в:
