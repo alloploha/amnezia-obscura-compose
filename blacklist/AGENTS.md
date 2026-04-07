@@ -3,6 +3,29 @@
 This file is the source of truth for the `blacklist/` subtree.
 Future agents working on the blacklist module should start here.
 
+## Documentation Policy
+
+- `blacklist/README.md` is the main user-facing copy for this module.
+- `blacklist/README.ru.md` and any other translations are dependent documents and must stay aligned with `blacklist/README.md`.
+- Every time `blacklist/README.md` is modified, update all dependent translations accordingly in the same work whenever feasible, including files such as `blacklist/README.ru.md`, `blacklist/README.by.md`, and any other localized variants present in the subtree.
+- Keep user-facing READMEs simple and script-oriented.
+  They should describe the normal operator workflow through the top-level scripts in `scripts/`.
+- Keep detailed technical behavior, backend rules, internal command contracts, and AI-helper guidance in this file, not in the READMEs.
+- If `blacklist/README.md` changes meaningfully, update the translations in the same work whenever feasible.
+
+## Version Policy
+
+- The blacklist module uses the repository-level `VERSION` file as its canonical version source.
+- `blacklist/libexec/obscura_blacklist/__init__.py` reads that version for `__version__`, so blacklist packaging and CLI-visible versioning must stay aligned with `VERSION`.
+- Apply the repository versioning policy to blacklist work as well:
+  - increase `major` only for breaking changes
+  - increase `minor` for non-breaking features and bug fixes
+  - reset `patch` to `0` when `minor` increases
+  - reset both `minor` and `patch` to `0` when `major` increases
+  - increase `patch` for non-functional changes only, such as documentation, formatting, testing-only changes, and similar work
+- When blacklist work changes the effective project/module version under that policy, update the top-level `VERSION` file in the same work whenever feasible.
+- Do not hardcode or separately track a divergent blacklist version unless the architecture is intentionally changed later.
+
 ## Purpose
 
 The blacklist module is an optional, host-side egress filtering subsystem for Docker-hosted services.

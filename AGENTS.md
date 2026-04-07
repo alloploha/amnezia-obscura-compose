@@ -16,6 +16,24 @@ Do not let `README.md` or code drift away from what is documented here.
 Project name: Obscura
 Current project version: `0.1.0`
 
+Version file:
+- the parent repository root contains `VERSION`
+- `VERSION` must contain exactly one semantic version string in `major.minor.patch` format
+
+Versioning policy:
+- increase `major` only for breaking changes
+- increase `minor` for non-breaking features and bug fixes
+- reset `patch` to `0` when `minor` increases
+- reset both `minor` and `patch` to `0` when `major` increases
+- increase `patch` for non-functional changes only, such as documentation updates, formatting-only changes, test-only changes, packaging metadata changes, and similar work
+
+Agent directive:
+- treat `VERSION` as the canonical project version for the whole repository
+- when making changes, decide whether they require a version bump under the policy above
+- if the work changes the effective project version, update `VERSION` in the same work whenever feasible
+- do not change `major`, `minor`, or `patch` outside this policy
+- keep documentation, code references, and packaging metadata aligned with `VERSION`
+
 Repository purpose:
 Build a Docker Compose based, Amnezia-compatible server-side deployment layer for self-hosted VPN infrastructure.
 
