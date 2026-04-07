@@ -1,0 +1,372 @@
+# ULRT-AS PJSC Rostelecom. Ulyanovsk branch, RU
+# PJSC Rostelecom
+AS2878
+# RU-SURNET PJSC Rostelecom. Chelyabinsk branch, RU
+# PJSC Rostelecom
+AS3239
+# KRASNET-AS OJSC Sibirtelecom, RU
+# PJSC Rostelecom
+AS5573
+# MARTELCOM-AS PJSC Rostelecom. Volga branch, RU
+# PJSC Rostelecom
+AS5591
+# USI PJSC Rostelecom. Ekaterinburg branch, RU
+# PJSC Rostelecom
+AS6828
+# TECHNODESIGN TECHNODESIGN LLC, RU
+# PJSC Rostelecom
+AS6844
+# ROSNET-AS OJSC Rosnet, RU
+# PJSC Rostelecom
+AS6863
+# TOTCOM-AS OJSC VolgaTelecom, RU
+# PJSC Rostelecom
+AS8249
+# IRTEL-AS PJSC Rostelecom. Irkutsk branch, RU
+# PJSC Rostelecom
+AS8382
+# AIST JSC AIST, RU
+# PJSC Rostelecom
+AS8439
+# SKHDSV-AS PJSC Rostelecom. Sakhalin branch, RU
+# PJSC Rostelecom
+AS8443
+# ELKATEL-AS PJSC Rostelecom. Moscow branch, RU
+# PJSC Rostelecom
+AS8557
+# MMT-AS, RU
+# PJSC Rostelecom
+AS8568
+# LES OJSC Lipetskelectrosvyaz, RU
+# PJSC Rostelecom
+AS8570
+# PJSC Rostelecom. Omsk branch, RU
+# PJSC Rostelecom
+AS8594
+# AS_TULATEL OJSC CenterTelecom, RU
+# PJSC Rostelecom
+AS8675
+# BURNET-AS OJSC National Cable Networks, RU
+# PJSC Rostelecom
+AS8828
+# ASN-SPBNIT PJSC Rostelecom. North-West branch, RU
+# PJSC Rostelecom
+AS8997
+# PRIMORYE-AS PJSC Rostelecom ex RU.PRIMORYE, RU
+# PJSC Rostelecom
+AS12332
+# LENSVYAZ PJSC Rostelecom Leningrad Region Autonomous System, RU
+# PJSC Rostelecom
+AS12380
+# ROSTELECOM-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS12389
+# STATEL-AS PJSC Rostelecom. Stavropol branch, RU
+# PJSC Rostelecom
+AS12683
+# SIBITEX Sibitex LLC, RU
+# PJSC Rostelecom
+AS12685
+# PFES Perm department Autonomous System, RU
+# PJSC Rostelecom
+AS12705
+# INECO_AS JSC Telecommunication Company, RU
+# PJSC Rostelecom
+AS12730
+# Barnaul, Russia, RU
+# PJSC Rostelecom
+AS12846
+# RT-TMB-AS PJSC Rostelecom. Tambov branch, RU
+# PJSC Rostelecom
+AS13056
+# ASN-YARTELECOM PJSC Rostelecom. Yaroslavl branch, RU
+# PJSC Rostelecom
+AS13118
+# KLGELECS-AS PJSC Rostelecom. Kaluga branch, RU
+# PJSC Rostelecom
+AS15468
+# OJSC VolgaTelecom, RU
+# PJSC Rostelecom
+AS15500
+# DIN-AS OJSC Tomsktelecom, RU
+# PJSC Rostelecom
+AS15759
+# ZEBRA-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS15934
+# NSOELSV-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS16054
+# KUZBASSNET PJSC Rostelecom. Moscow branch, RU
+# PJSC Rostelecom
+AS16287
+# DATACOM-AS Novgorod Datacom LLC, RU
+# PJSC Rostelecom
+AS16301
+# BALTNET Kaliningrad Region North-West Autonomous System, RU
+# PJSC Rostelecom
+AS20519
+# VSI-AS PJSC Rostelecom. Voronezh branch, RU
+# PJSC Rostelecom
+AS21017
+# ROSTOVTELECOM-AS RTComm-Yug LLC, RU
+# PJSC Rostelecom
+AS21289
+# CTCTVER PJSC Rostelecom. Tver branch, RU
+# PJSC Rostelecom
+AS21378
+# ROSTOV-TELEGRAF-AS PJSC Rostelecom. Rostov-na-Dony branch, RU
+# PJSC Rostelecom
+AS21479
+# PJSC Rostelecom. Yakutsk branch, RU
+# PJSC Rostelecom
+AS21487
+# PENZA-SVIAZINFORM-AS PJSC Rostelecom. Penza branch, RU
+# PJSC Rostelecom
+AS24612
+# SUTC-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS24665
+# IVTELECOM-AS PJSC Rostelecom. Ivanovo branch, RU
+# PJSC Rostelecom
+AS24699
+# ASN-MELS-MURMANELECTROSVIAZ PJSC Rostelecom Murmansk Region Autonomous System, RU
+# PJSC Rostelecom
+AS24783
+# NOVGORODTELECOM-AS TELESET LLC, RU
+# PJSC Rostelecom
+AS24789
+# TELESET-KAZAN PJSC Rostelecom. Kazan branch, RU
+# PJSC Rostelecom
+AS24810
+# ELLINK-AS OJSC Electrosvyaz of Pskov Oblast, RU
+# PJSC Rostelecom
+AS24873
+# ESOO-AS OJSC VolgaTelecom, RU
+# PJSC Rostelecom
+AS25008
+# NMTS-AS PJSC Rostelecom. Nizhny Novgorod branch, RU
+# PJSC Rostelecom
+AS25405
+# KIROV-CAIT-AS PJSC Rostelecom. Kirov branch, RU
+# PJSC Rostelecom
+AS25436
+# STC-AS OJSC Southern Telecommunications Company, RU
+# PJSC Rostelecom
+AS25490
+# ROSTELECOM-AS ATRI-COM LLC, RU
+# PJSC Rostelecom
+AS25510
+# CTCNET-AS PJSC Rostelecom. Moscow branch, RU
+# PJSC Rostelecom
+AS25515
+# INTFRM-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS25531
+# HMFES Khanty-Mansiysky department Autonomous System, RU
+# PJSC Rostelecom
+AS28719
+# KALMYKIA-AS OJSC Southern Telecommunications Company, RU
+# PJSC Rostelecom
+AS28802
+# PARMA-INFORM-AS OJSC SPBNIT, RU
+# PJSC Rostelecom
+AS28860
+# TLK-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS29069
+# BELSVYAZ-AS PJSC Rostelecom. Belgorod branch, RU
+# PJSC Rostelecom
+AS29456
+# VOLOGDA-AS PJSC Rostelecom Vologda Region Autonomous System, RU
+# PJSC Rostelecom
+AS30749
+# NNTS-AS OJSC VolgaTelecom, RU
+# PJSC Rostelecom
+AS30974
+# TTKNET OJSC Uralsviazinform, RU
+# PJSC Rostelecom
+AS31094
+# TNPKO-AS JSC Sibirtelecom, RU
+# PJSC Rostelecom
+AS31185
+# PTT-AS PJSC Rostelecom Saint-Petersburg Region Autonomous System, RU
+# PJSC Rostelecom
+AS31353
+# ATNET-AS OJSC North-West Telecom, RU
+# PJSC Rostelecom
+AS31496
+# TELESET-NCHELNY TELESET LLC, RU
+# PJSC Rostelecom
+AS33887
+# VOLGOGRADEC-AS OJSC Volgogradelectrosviaz, RU
+# PJSC Rostelecom
+AS33934
+# PJSC Rostelecom. Blagoveschensk branch, RU
+# PJSC Rostelecom
+AS34137
+# ELCOM-ISP-AS PJSC Rostelecom. Vladimir branch, RU
+# PJSC Rostelecom
+AS34168
+# MRBD-AS PJSC Rostelecom. Magadan branch, RU
+# PJSC Rostelecom
+AS34205
+# DEBRYANSK-AS-1 PJSC Rostelecom. Bryansk branch, RU
+# PJSC Rostelecom
+AS34267
+# SKH-IX-AS Yuzhno-Sakhalinsk Internet eXchange, RU
+# PJSC Rostelecom
+AS34297
+# MORDOVIA-AS OJSC VolgaTelecom, RU
+# PJSC Rostelecom
+AS34449
+# TSC-AS PJSC Rostelecom. Tomsk branch, RU
+# PJSC Rostelecom
+AS34490
+# PJSC Rostelecom. Khabarovsk branch, RU
+# PJSC Rostelecom
+AS34584
+# YANFES OJSC Uralsviazinform, RU
+# PJSC Rostelecom
+AS34875
+# INFOLINK-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS34892
+# PJSC Rostelecom. Kamchatka branch, RU
+# PJSC Rostelecom
+AS34974
+# CORVETTE-AS OJSC National Cable Networks, RU
+# PJSC Rostelecom
+AS35078
+# SMOLENSK-AS PJSC Rostelecom. Smolensk branch, RU
+# PJSC Rostelecom
+AS35125
+# TELENET-AS Teleset Service LLC, RU
+# PJSC Rostelecom
+AS35154
+# ASI-AS PJSC Rostelecom. Astrakhan branch, RU
+# PJSC Rostelecom
+AS35177
+# KRASLAN-AS Krasnoyarsk Computer Network LLC, RU
+# PJSC Rostelecom
+AS35389
+# MFIST OJSC Uralsviazinform, RU
+# PJSC Rostelecom
+AS35400
+# KURSKNET-RU-AS PJSC Rostelecom. Kursk branch, RU
+# PJSC Rostelecom
+AS35516
+# RU-USI-KURGAN Biggest ISP of Kurgan region, Russia, RU
+# PJSC Rostelecom
+AS35531
+# TKT-AS OJSC TKT, RU
+# PJSC Rostelecom
+AS38951
+# RU-ATVC-AS ATVC LLC, RU
+# PJSC Rostelecom
+AS38976
+# GAGUES-AS PJSC Rostelecom. Altai branch, RU
+# PJSC Rostelecom
+AS38985
+# PJSC Rostelecom. Ulan-Ude branch, RU
+# PJSC Rostelecom
+AS39054
+# SAN-AS OJSC VolgaTelecom, RU
+# PJSC Rostelecom
+AS39229
+# CHITATELECOM-AS PJSC Rostelecom. Novosibirsk branch, RU
+# PJSC Rostelecom
+AS39407
+# CTC-OREL-AS PJSC Rostelecom. Orel branch, RU
+# PJSC Rostelecom
+AS41134
+# IDEATELECOM CJSC IDEATELECOM, RU
+# PJSC Rostelecom
+AS41190
+# SIBIRTELECOM-AS PJSC Rostelecom. Novosibirsk branch, RU
+# PJSC Rostelecom
+AS41440
+# SUMTEL-AS-RIPE CJSC Sumtel, RU
+# PJSC Rostelecom
+AS41691
+# KHAKAS-AS PJSC Rostelecom. Abakan branch, RU
+# PJSC Rostelecom
+AS42091
+# INSYS-AS Insys LLC, RU
+# PJSC Rostelecom
+AS42358
+# ALANIA-AS PJSC Rostelecom. North Ossetion branch, RU
+# PJSC Rostelecom
+AS42362
+# ERA-AS OJSC Electrosvyaz of Adygheia Republic, RU
+# PJSC Rostelecom
+AS42448
+# KCHR-AS PJSC Rostelecom. Karachaevo-Cherkess branch, RU
+# PJSC Rostelecom
+AS42548
+# NCNET-AS OJSC National Cable Networks, RU
+# PJSC Rostelecom
+AS42610
+# UDMVT-AS PJSC Rostelecom. Udmurtia Republic branch, RU
+# PJSC Rostelecom
+AS42825
+# NOVAKTV-AS PJSC Rostelecom. Novosibirsk branch, RU
+# PJSC Rostelecom
+AS43053
+# KBT-AS OJSC Kabbalktelekom, RU
+# PJSC Rostelecom
+AS43132
+# NERSI-AS, RU
+# PJSC Rostelecom
+AS43302
+# RU-CHTTS PJSC Rostelecom. Cheboksary branch, RU
+# PJSC Rostelecom
+AS43468
+# DAGSV-AS PJSC Rostelecom. Daghestan branch, RU
+# PJSC Rostelecom
+AS43574
+# TOTALNET-AS Tvingo Telecom LLC, RU
+# PJSC Rostelecom
+AS43793
+# VTK-AS OJSC VolgaTelecom, RU
+# PJSC Rostelecom
+AS43975
+# CTC-CORE-AS PJSC Rostelecom. Center branch, RU
+# PJSC Rostelecom
+AS44237
+# INGUSHELECTROSVYAZ-AS former Ingushelectrosvyaz, RU
+# PJSC Rostelecom
+AS44412
+# IRN-STC-AS OJSC Southern Telecommunications Company, RU
+# PJSC Rostelecom
+AS44467
+# GLOBUS-SARATOV-AS PJSC Rostelecom. Nizhny Novgorod branch, RU
+# PJSC Rostelecom
+AS44982
+# NCNET-KURGAN-AS OJSC National Cable Networks, RU
+# PJSC Rostelecom
+AS47460
+# ROSTELECOMIT-AS Rostelecom Information Technologies LLC, RU
+# Rostelecom Information Technologies LTd
+AS48044
+# ATLAS-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS48421
+# COUNTRY-TELECOM-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS51281
+# ENTER-AS PJSC Rostelecom. Moscow branch, RU
+# PJSC Rostelecom
+AS56341
+# TELENET2-AS Teleset Service LLC, RU
+# PJSC Rostelecom
+AS56350
+# STEK-KAZAN from Rostelecom, RU
+# Stek Kazan LLC
+AS60651
+# ELECTRONIC-GOVERNMENT PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS196747
+# MBSAMARA-AS PJSC Rostelecom. Technical Team, RU
+# PJSC Rostelecom
+AS204354 

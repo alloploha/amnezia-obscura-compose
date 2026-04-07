@@ -1,0 +1,51 @@
+# SBERBANK-CIB, RU
+# Sberbank of Russia PJSC
+AS33844
+# SBERBANK, RU
+# Sberbank of Russia PJSC
+AS35237
+# NPFSBERBANKA-AS, RU
+# Joint Stock Company Non-state Pension Fund of Sberbank
+AS42628
+# NET-SBERBANK-AST, RU
+# JSC Sberbank-AST
+AS42974
+# SBER-NSK-AS, RU
+# Sberbank of Russia PJSC
+AS43396
+# SBER-SMR-AS, RU
+# Sberbank of Russia PJSC
+AS44408
+# SBER-EKB-AS, RU
+# Sberbank of Russia PJSC
+AS45000
+# SBERBANK-BALAKOVO-AS, RU
+# Sberbank of Russia PJSC
+AS47457
+# WESTURALSBANK-AS, RU
+# Sberbank of Russia PJSC
+AS48826
+# SBER-BAL-VDI, RU
+# Sberbank of Russia PJSC
+AS58112
+# SBERBANK-VDI, RU
+# Sberbank of Russia PJSC
+AS60122
+# ASBPSSBERBANK, BY
+# JSC Sberbank
+AS62170
+# SBRF-CAPITAL, RU
+# Sberbank Capital LLC
+AS205158
+# SBER-SPB-AS, RU
+# Sberbank of Russia PJSC
+AS205161
+# SBERBANK-TELECOM, RU
+# Sberbank-Telecom LLC
+AS206673
+# SBERLEASING, RU
+# AKCIONERNOYE OBSCHESTVO SBERBANK LIZING
+AS208165
+# SBERBANK-FACTORING, RU
+# Sberbank-factoring Ltd.
+AS209701
