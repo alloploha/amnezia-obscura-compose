@@ -14,7 +14,7 @@ Do not let `README.md` or code drift away from what is documented here.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.1.0`
+Current project version: `0.3.0`
 
 Version file:
 - the parent repository root contains `VERSION`
@@ -69,6 +69,7 @@ As of the current repo state:
 - the top-level `blacklist/` directory contains a host-side blacklist module, config, category source files, CLI entrypoint, and systemd unit templates
 - `scripts/` contains helper scripts for Docker Compose plugin installation, Docker IPv6 enablement, and blacklist install/uninstall wrappers
   There is also a refresh wrapper for operators who edit blacklist source files and want to reapply rules immediately.
+  By default the refresh wrapper targets the installed blacklist config under `/etc/obscura-blacklist`; with `--repo` it first copies repo blacklist source files into `/etc/obscura-blacklist/sources`, then runs the normal installed refresh.
   The blacklist install wrapper also performs systemd/Docker preflight checks, then a post-install `check` and immediate refresh; the uninstall wrapper disables/stops the blacklist units, waits for them to go inactive, then flushes live state before removing systemd integration.
 - `amnezia-client/` is an upstream Git submodule used as reference/source material for protocol container scripts and compatibility work
 

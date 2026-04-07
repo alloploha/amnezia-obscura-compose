@@ -77,6 +77,23 @@ sudo sh scripts/refresh-blacklist.sh
 ```
 
 This script rereads the installed config and updates the active rules.
+It uses:
+- `/etc/obscura-blacklist/blacklist.conf`
+- `/etc/obscura-blacklist/sources/`
+
+If you want to copy blacklist source file changes from the cloned repository into the installed blacklist and refresh them in one step, use:
+
+```bash
+sudo sh scripts/refresh-blacklist.sh --repo
+```
+
+In `--repo` mode, the script copies the repo source files from:
+- `blacklist/config/sources/`
+
+into:
+- `/etc/obscura-blacklist/sources/`
+
+and then runs the normal installed refresh using `/etc/obscura-blacklist/blacklist.conf`.
 
 ## Removing The Module
 

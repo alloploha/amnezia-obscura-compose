@@ -75,6 +75,23 @@ sudo sh scripts/refresh-blacklist.sh
 ```
 
 Этот скрипт перечитает установленный конфиг и обновит активные правила.
+Он использует:
+- `/etc/obscura-blacklist/blacklist.conf`
+- `/etc/obscura-blacklist/sources/`
+
+Если нужно скопировать изменения source-файлов из клонированного репозитория в установленный blacklist и сразу применить их, используйте:
+
+```bash
+sudo sh scripts/refresh-blacklist.sh --repo
+```
+
+В режиме `--repo` скрипт копирует source-файлы из репозитория:
+- `blacklist/config/sources/`
+
+в:
+- `/etc/obscura-blacklist/sources/`
+
+и затем запускает обычное обновление через установленный конфиг `/etc/obscura-blacklist/blacklist.conf`.
 
 ## Как удалить модуль
 

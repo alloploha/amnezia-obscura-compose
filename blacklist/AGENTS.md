@@ -215,6 +215,10 @@ Expected host install locations:
 - cache: `/var/cache/obscura-blacklist`
 - executable: `/usr/local/bin/obscura-blacklist`
 
+Refresh wrapper behavior:
+- `scripts/refresh-blacklist.sh` with no extra arguments refreshes the installed config at `/etc/obscura-blacklist/blacklist.conf` and the installed sources under `/etc/obscura-blacklist/sources`
+- `scripts/refresh-blacklist.sh --repo` copies source files from `blacklist/config/sources` into `/etc/obscura-blacklist/sources` and then runs the normal installed refresh through `/etc/obscura-blacklist/blacklist.conf`
+
 Important persisted state files:
 - `last_apply.json`
 - `last_good_targets.json`
