@@ -69,6 +69,7 @@ The repository currently ships blacklist source files for:
 - `mail.ru`
 - Odnoklassniki
 - Gosuslugi
+- Wildberries
 
 After changing the lists, apply the update:
 
