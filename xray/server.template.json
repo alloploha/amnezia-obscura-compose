@@ -1,0 +1,35 @@
+{
+    "log": {
+        "loglevel": "__XRAY_LOG_LEVEL__"
+    },
+    "inbounds": [
+        {
+            "listen": "__XRAY_LISTEN_ADDR__",
+            "port": __XRAY_SERVER_PORT__,
+            "protocol": "vless",
+            "settings": {
+__XRAY_CLIENTS_BLOCK__
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                    "dest": "__XRAY_SITE_NAME__:443",
+                    "serverNames": [
+                        "__XRAY_SITE_NAME__"
+                    ],
+                    "privateKey": "__XRAY_PRIVATE_KEY__",
+                    "shortIds": [
+                        "__XRAY_SHORT_ID__"
+                    ]
+                }
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom"
+        }
+    ]
+}

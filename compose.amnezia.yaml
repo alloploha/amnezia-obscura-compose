@@ -10,6 +10,10 @@ services:
     volumes:
       - /srv/amnezia/socks5proxy/conf:/compat:ro
 
+  xray:
+    networks:
+      - amnezia-dns
+
 networks:
   amnezia-dns:
     name: amnezia-dns-net

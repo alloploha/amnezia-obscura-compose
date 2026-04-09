@@ -20,7 +20,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.5.3`
+Current project version: `0.10.0`
 
 Version file:
 - the repository root contains `VERSION`
@@ -82,9 +82,10 @@ The long-term target is a fuller server stack where DNS and VPN services are man
 Current implementation status:
 - implemented: private DNS resolver based on Unbound
 - implemented as an opt-in profile: Compose-native SOCKS5 proxy module based on 3proxy
+- implemented as an early opt-in profile: Compose-native Xray module with persistent state generation and template-rendered server config
 - implemented as a host-side module: blacklist inspection, backend auto-detection, apply, refresh, verify, flush, and systemd install/remove flows for Docker egress filtering
-- partially prepared: Compose project layout, helper scripts, and reserved volumes for future protocol services
-- not yet implemented as Compose services: WireGuard, AWG, Xray, OpenVPN, IPsec, and other VPN containers
+- partially prepared: helper scripts, compatibility overlays, and reserved volumes for future protocol services
+- not yet implemented as Compose services: WireGuard, AWG, OpenVPN, IPsec, and other VPN containers
 
 Be precise in docs and code comments:
 - current product: DNS resolver plus groundwork
@@ -150,8 +151,10 @@ Important top-level areas:
 Current Compose resources:
 - default service: `dns`
 - opt-in profile service: `socks5proxy`
-- reserved volumes for future work: `awg-data`, `xray-data`
+- opt-in profile service: `xray`
+- reserved volume for future work: `awg-data`
 - current service data volume: `socks5proxy-data`
+- current service data volume: `xray-data`
 - internal network: `obscura-dns`
 - optional external compatibility network: `amnezia-dns-net`, provided only by `compose.amnezia.yaml`
 
@@ -236,6 +239,158 @@ Compatibility model:
 Important limitation:
 - in Docker bridge mode, published host ports are static at container creation time
 - if an external Amnezia-managed config changes the SOCKS5 listen port, Obscura cannot follow that host-port change automatically without recreating the service or changing the networking model
+
+### Xray Module
+
+Implementation status:
+- implemented as an early opt-in Compose profile
+- current work covers image build, first-start state generation, template rendering, health checks, and basic compatibility layout
+- client-management helpers, import tooling, and full Amnezia state compatibility are still planned
+
+Upstream Amnezia model summary:
+- build an image from `client/server_scripts/xray/Dockerfile`
+- run it with `docker run`, publish the selected TCP port, and connect it to `amnezia-dns-net`
+- exec a one-shot configure script that generates Reality key material, short ID, bootstrap UUID, and `/opt/amnezia/xray/server.json`
+- upload and launch a startup script that starts Xray and then keeps the container alive with a dummy long-running process
+- add later clients by mutating `server.json` in place and restarting the container
+
+Obscura should preserve:
+- upstream-compatible Xray server config shape
+- Reality key material and short ID semantics
+- the operator-facing port and site-name parameters
+- client template compatibility for VLESS over TCP with Reality
+- practical compatibility with the `/opt/amnezia/xray` file layout where useful
+
+Obscura should replace:
+- imperative `docker run` orchestration with a Compose service
+- one-shot `docker exec` mutation as the main lifecycle
+- dummy keepalive PID 1 behavior
+- direct rendered-config mutation as the canonical state model
+- unnecessary privilege assumptions unless testing proves they are required for the actual server-side feature set
+
+Target Compose-native design:
+- service name: `xray`
+- default data volume: existing reserved volume `xray-data`
+- canonical state directory in the container: `/var/lib/obscura/xray`
+- compatibility mirror path in the container: `/opt/amnezia/xray`
+- the service should execute `xray -config ...` as PID 1 directly
+- the service should use Obscura's internal DNS by default and should support dual-stack networking where Docker supports it
+- the service should optionally attach to `amnezia-dns-net` through `compose.amnezia.yaml`
+
+Current implemented files:
+- `xray/Dockerfile`
+- `xray/entrypoint.sh`
+- `xray/server.template.json`
+- `xray/client.template.json`
+- `xray/healthcheck.sh`
+- `scripts/test-xray-host.sh`
+
+Current image-build behavior:
+- the Xray image uses a multi-stage Docker build
+- the fetch stage downloads and unpacks the upstream Xray release artifact
+- the final runtime stage copies only the `xray` binary and does not keep `curl` or `unzip`
+
+Current implemented Compose behavior:
+- the service is enabled through the `xray` Compose profile
+- the service depends on `dns`
+- the service publishes `${XRAY_SERVER_PORT}:${XRAY_SERVER_PORT}/tcp`
+- the service mounts `xray-data` at `${XRAY_STATE_DIR:-/var/lib/obscura/xray}`
+- `compose.amnezia.yaml` attaches the service to the optional external network `amnezia-dns-net`
+
+Current first-start behavior:
+- generate bootstrap UUID if `xray_uuid.key` is absent
+- generate Reality short ID if `xray_short_id.key` is absent
+- generate Reality x25519 keypair if `xray_public.key` and `xray_private.key` are absent
+- create `clients.json` with one bootstrap client if it is absent
+- render the persisted client template with the bootstrap client flow so server-side and exported client-side flow semantics stay aligned
+- render `server.json` from `server.template.json`
+- publish an Amnezia-style compatibility view under `/opt/amnezia/xray` using symlinks into the persistent state directory
+
+Current canonical persisted state:
+- `server.json`
+- `clients.json`
+- `client.template.json`
+- `xray_uuid.key`
+- `xray_short_id.key`
+- `xray_public.key`
+- `xray_private.key`
+
+Current health-check model:
+- verify `/opt/amnezia/xray/server.json` exists
+- verify PID 1 is alive
+- parse the configured TCP port from the rendered config
+- verify the expected listener is present in `/proc/net/tcp` or `/proc/net/tcp6`
+
+Current limitations:
+- there is no host-side helper yet to add, remove, list, or export clients from `clients.json`
+- there is no import or externalize helper yet for existing Amnezia Xray deployments
+- there is not yet a validated path for mounting an external `/srv/amnezia/xray` state directory as the canonical source
+- the current client template is persisted for future export work and now aligns its `flow` with the bootstrap client, but general per-client export plumbing is not implemented yet
+- the image still downloads Xray from upstream release artifacts during `docker build`, but now does so in a builder stage rather than the final runtime image
+- the current host-side validation script exercises the bootstrap client path by rendering a temporary client config and probing a known web site through a temporary host-networked Xray client container
+
+Canonical server-side state to persist:
+- rendered server config: `server.json`
+- Reality public key
+- Reality private key
+- Reality short ID
+- bootstrap UUID for the first generated client
+- structured Obscura-managed client registry, for example `clients.json` or `clients.d/`
+- structured server settings such as selected listen port and fake site name if those are not kept only in Compose environment
+
+Recommended file and module layout:
+- `xray/Dockerfile`
+- `xray/entrypoint.sh` or a small renderer such as `xray/render.py`
+- `xray/server.template.json`
+- `xray/client.template.json`
+- `xray/healthcheck.sh`
+- optional thin helper scripts or a small Python management tool for client add, remove, and export flows
+
+Runtime rendering model:
+- on first start, generate Reality x25519 keypair, short ID, and bootstrap UUID if they are absent
+- store generated values in the canonical state directory
+- render `server.json` from templates and structured state on each start
+- maintain `/opt/amnezia/xray` as the effective compatibility view of the same durable state, either directly or through symlinks
+- validate the rendered config before starting Xray when practical
+
+Client management model:
+- Obscura should not treat rendered `server.json` as the canonical editable source of truth
+- Obscura should keep a structured client registry and derive the Xray `clients` array from it
+- exported client configs should still match the upstream client template semantics expected by Amnezia's Xray client path
+- the bootstrap UUID should be tracked explicitly so it can be excluded from operator-facing client lists where appropriate, matching upstream behavior
+
+Mode model:
+- Obscura-managed mode:
+  - canonical state lives in `xray-data` or an explicit operator bind mount
+  - Obscura owns template rendering, key generation, and client registry management
+
+- Amnezia-compatible mode:
+  - preferred compatibility target is an externalized host-backed Xray state directory, for example under `/srv/amnezia/xray`
+  - Obscura should be able either to mount and run from that state directly or to import it once into native Obscura state
+  - compatibility should focus on file layout and config compatibility, not on preserving Amnezia's imperative lifecycle
+
+Migration direction:
+- provide a one-shot helper to externalize state from a live Amnezia Xray container into a host directory
+- provide a follow-up import or attach workflow for the Obscura `xray` service
+- do not assume a live Amnezia Xray container must remain the long-term source of truth
+
+Operational direction:
+- add a health check that verifies the rendered config exists, Xray is running, and the expected TCP listener is present
+- keep logging Docker-friendly and avoid internal forever-shell patterns
+- avoid `--privileged`, `NET_ADMIN`, and `/dev/net/tun` assumptions unless a verified server-side requirement appears during implementation
+- prefer a stable Compose restart model over uploaded startup scripts
+
+Tracked implementation steps:
+- completed: add `xray/` module files and Compose service using the existing `xray-data` volume
+- completed: implement first-start state generation for Reality keys, short ID, and bootstrap UUID
+- completed: implement template-based `server.json` rendering from structured state
+- planned: define a structured client registry and stop using rendered `server.json` as the primary editable source
+- planned: add a client export path compatible with upstream Xray client configuration expectations
+- completed: add health checks for the running `xray` service
+- completed: add host-side validation tooling for the running `xray` service
+- completed: add optional Amnezia overlay support for `amnezia-dns-net`
+- planned: add a one-shot externalize or import helper for existing Amnezia Xray deployments
+- planned: document the recommended host bind-mount layout and migration path
 
 ### Blacklist Module
 
@@ -345,6 +500,7 @@ Near-term service work includes:
 - continue validating the `socks5proxy` module against live Amnezia-managed setups
 - decide whether the preferred path for tighter SOCKS5 compatibility should be bridge mode with explicit recreate on port changes or Linux host networking
 - document a recommended host bind-mount layout for service state under `/srv/amnezia/...`
+- implement the tracked Compose-native `xray` module plan recorded in this file
 - keep blacklist enforcement host-side rather than forcing it into a privileged Compose service
 - continue hardening blacklist refresh, restore, and degraded-state reporting semantics
 
