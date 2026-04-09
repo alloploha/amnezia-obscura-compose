@@ -20,7 +20,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.10.0`
+Current project version: `0.11.0`
 
 Version file:
 - the repository root contains `VERSION`
@@ -283,6 +283,7 @@ Current implemented files:
 - `xray/server.template.json`
 - `xray/client.template.json`
 - `xray/healthcheck.sh`
+- `scripts/manage-xray-clients.sh`
 - `scripts/test-xray-host.sh`
 
 Current image-build behavior:
@@ -321,11 +322,18 @@ Current health-check model:
 - parse the configured TCP port from the rendered config
 - verify the expected listener is present in `/proc/net/tcp` or `/proc/net/tcp6`
 
+Current host-side client-management model:
+- `clients.json` is now the canonical editable client registry
+- the bootstrap UUID remains tracked separately in `xray_uuid.key`
+- `scripts/manage-xray-clients.sh` supports `list`, `add`, `remove`, and `export`
+- `list` excludes the bootstrap client by default and can include it explicitly
+- `add` and `remove` update `clients.json` in the live state directory, then restart the Xray container so the entrypoint regenerates `server.json`
+- `export` renders a concrete client config from the persisted client template, the selected client registry entry, and the live Reality key material
+
 Current limitations:
-- there is no host-side helper yet to add, remove, list, or export clients from `clients.json`
 - there is no import or externalize helper yet for existing Amnezia Xray deployments
 - there is not yet a validated path for mounting an external `/srv/amnezia/xray` state directory as the canonical source
-- the current client template is persisted for future export work and now aligns its `flow` with the bootstrap client, but general per-client export plumbing is not implemented yet
+- the current client registry stores only `id` and `flow`; richer per-client metadata such as names, notes, or enabled flags is not implemented yet
 - the image still downloads Xray from upstream release artifacts during `docker build`, but now does so in a builder stage rather than the final runtime image
 - the current host-side validation script exercises the bootstrap client path by rendering a temporary client config and probing a known web site through a temporary host-networked Xray client container
 
@@ -384,8 +392,8 @@ Tracked implementation steps:
 - completed: add `xray/` module files and Compose service using the existing `xray-data` volume
 - completed: implement first-start state generation for Reality keys, short ID, and bootstrap UUID
 - completed: implement template-based `server.json` rendering from structured state
-- planned: define a structured client registry and stop using rendered `server.json` as the primary editable source
-- planned: add a client export path compatible with upstream Xray client configuration expectations
+- completed: define a structured client registry and stop using rendered `server.json` as the primary editable source
+- completed: add a client export path compatible with upstream Xray client configuration expectations
 - completed: add health checks for the running `xray` service
 - completed: add host-side validation tooling for the running `xray` service
 - completed: add optional Amnezia overlay support for `amnezia-dns-net`
