@@ -1,23 +1,29 @@
 ## AI Agent Guidelines
 
-This file is the primary source of truth for the project state, direction, and architecture.
+This file is the source of truth for the top-level project.
 Future AI agents should start here before making changes.
 
-Use this file as:
-- the entry point for understanding the repo
-- the canonical summary of current implementation vs planned implementation
-- the place to record architecture decisions and important constraints as the project evolves
+## Documentation Policy
 
-If you change the project in a meaningful way, update this file in the same work whenever feasible.
-Do not let `README.md` or code drift away from what is documented here.
+- `README.md` is the main user-facing document for the repository.
+- English top-level docs are the primary source documents.
+- `README.ru.md` is a dependent translation of `README.md` and must stay aligned with it.
+- If additional localized top-level README files are added later, they are also dependent documents and must stay aligned with `README.md`.
+- Every time `README.md` changes meaningfully, update `README.ru.md` and any other dependent top-level translations in the same work whenever feasible.
+- `README.md` should stay compact, practical, and use-case oriented.
+- `README.md` should explain what Obscura is, why it exists, what works today, and how a non-expert user can try it.
+- `README.md` should not carry detailed implementation notes, internal architecture rules, compatibility debt, or agent directives.
+- This file owns technical implementation notes, architecture, constraints, compatibility rules, deferred cleanup records, and AI-helper directives.
+- If `README.md` or this file changes meaningfully, update the other one in the same work whenever feasible so they stay aligned.
+- Do not let user-facing docs drift away from code or from the canonical repo state described here.
 
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.4.1`
+Current project version: `0.5.3`
 
 Version file:
-- the parent repository root contains `VERSION`
+- the repository root contains `VERSION`
 - `VERSION` must contain exactly one semantic version string in `major.minor.patch` format
 
 Versioning policy:
@@ -52,67 +58,39 @@ Current deferred compatibility items:
   This alias exists only to preserve the previously introduced flag spelling without forcing an immediate breaking change.
   Remove the `--repo` alias when the next real major-version breaking change is made.
 
-Repository purpose:
+## Repository Purpose
+
 Build a Docker Compose based, Amnezia-compatible server-side deployment layer for self-hosted VPN infrastructure.
 
 This repository is not a fork of the Amnezia application.
-It is an alternative deployment/orchestration layer intended to run server components in a cleaner, more operator-friendly way while preserving practical compatibility with Amnezia.
+It is an alternative deployment and orchestration layer intended to run server components in a cleaner, more operator-friendly way while preserving practical compatibility with Amnezia where that is useful.
 
 ## Final Goal
 
 Develop Obscura into a Compose-native backend for Amnezia-style server deployments with:
 - better Docker integration
-- easier direct server management for advanced users
+- easier direct server management
 - side-by-side compatibility with vanilla Amnezia
 - reuse of compatible data layouts, networks, and container behavior where practical
 - support for multiple VPN protocols such as WireGuard, AWG, Xray, OpenVPN, and IPsec
 
-The long-term target is not "just DNS".
-The long-term target is a full server stack where DNS and VPN services are managed as durable Compose services rather than being created ad hoc by a GUI client over SSH.
+The long-term target is not only DNS.
+The long-term target is a fuller server stack where DNS and VPN services are managed as durable Compose services rather than being created ad hoc by a GUI client over SSH.
 
-## Current State
+## Current Status
 
 Current implementation status:
 - implemented: private DNS resolver based on Unbound
 - implemented as an opt-in profile: Compose-native SOCKS5 proxy module based on 3proxy
-- implemented as a host-side module: blacklist inspection, backend auto-detection, apply, and verify flows for Docker egress filtering
-- partially prepared: Compose project layout, helper scripts, reserved volumes for future protocol services
+- implemented as a host-side module: blacklist inspection, backend auto-detection, apply, refresh, verify, flush, and systemd install/remove flows for Docker egress filtering
+- partially prepared: Compose project layout, helper scripts, and reserved volumes for future protocol services
 - not yet implemented as Compose services: WireGuard, AWG, Xray, OpenVPN, IPsec, and other VPN containers
 
-As of the current repo state:
-- `compose.yaml` defines one default service: `dns`
-- `compose.yaml` also contains an opt-in `socks5proxy` profile-backed service
-- the top-level `dns/` directory contains the actual service Dockerfile and Unbound configuration
-- the top-level `socks5proxy/` directory contains the 3proxy-based SOCKS5 module
-- the top-level `blacklist/` directory contains a host-side blacklist module, config, category source files, CLI entrypoint, and systemd unit templates
-- `scripts/` contains helper scripts for Docker Compose plugin installation, Docker IPv6 enablement, and blacklist install/uninstall wrappers
-  There is also a refresh wrapper for operators who edit blacklist source files and want to reapply rules immediately.
-  By default the refresh wrapper targets the installed blacklist config under `/etc/obscura-blacklist`; with `--copy` it first copies repo blacklist source files into `/etc/obscura-blacklist/sources`, then runs the normal installed refresh.
-  The blacklist install wrapper also performs systemd/Docker preflight checks, then a post-install `check` and immediate refresh; the uninstall wrapper disables/stops the blacklist units, waits for them to go inactive, then flushes live state before removing systemd integration.
-- `amnezia-client/` is an upstream Git submodule used as reference/source material for protocol container scripts and compatibility work
-
 Be precise in docs and code comments:
-- current product: DNS resolver + groundwork
+- current product: DNS resolver plus groundwork
 - target product: full Compose-native Amnezia-compatible backend
 
 Do not describe the VPN stack as implemented unless the repo actually contains working Compose services for it.
-
-## Clear Objectives
-
-- Better Docker integration:
-  Containerize the full server stack with shared networks, clear volume boundaries, and explicit Compose definitions.
-
-- Easier management:
-  Let operators manage the stack directly with Compose, scripts, and files rather than only through an application-driven SSH workflow.
-
-- Compatibility:
-  Preserve interoperability with Amnezia where it is useful, especially shared Docker network assumptions, config behavior, and protocol container semantics.
-
-- Incremental delivery:
-  Keep the DNS service stable while evolving toward a broader server platform.
-
-- Honest documentation:
-  Keep a hard separation between "implemented now" and "planned next".
 
 ## Design Principles
 
@@ -135,25 +113,49 @@ Do not describe the VPN stack as implemented unless the repo actually contains w
   Current and future modules should support both IPv4 and IPv6 whenever the Docker daemon and Compose networks have IPv6 enabled.
   Do not hardcode IPv4-only listener addresses or upstream resolver addresses unless there is a protocol-specific reason.
 
+- Honest documentation:
+  Keep a hard separation between implemented behavior and planned direction.
+
 ## Current Architecture
 
-### Top-Level Compose Model
+### Top-Level Layout
 
-Top-level files:
+Important top-level areas:
+- `VERSION`
+  Canonical project version string.
+
 - `compose.yaml`
+  Main standalone Compose definition.
+
 - `compose.amnezia.yaml`
+  Optional compatibility overlay for side-by-side Amnezia operation.
+
+- `dns/`
+  Implemented DNS service.
+
+- `socks5proxy/`
+  Optional Compose-native SOCKS5 module.
+
+- `blacklist/`
+  Optional host-side blacklist module with its own user-facing and agent-facing docs.
+
+- `scripts/`
+  Thin helper scripts for setup and operator workflows.
+
+- `amnezia-client/`
+  Upstream Amnezia Git submodule used as reference material for compatibility and future protocol work.
+
+### Compose Model
 
 Current Compose resources:
-- service: `dns`
+- default service: `dns`
 - opt-in profile service: `socks5proxy`
-- volumes reserved for future use: `awg-data`, `xray-data`
-- service data volume: `socks5proxy-data`
-- networks:
-  - internal network `obscura-dns`
-  - optional external compatibility network `amnezia-dns-net` provided only by `compose.amnezia.yaml`
-  - optional Amnezia-compatible SOCKS5 overlay behavior in `compose.amnezia.yaml` using `/srv/amnezia/socks5proxy/conf`
+- reserved volumes for future work: `awg-data`, `xray-data`
+- current service data volume: `socks5proxy-data`
+- internal network: `obscura-dns`
+- optional external compatibility network: `amnezia-dns-net`, provided only by `compose.amnezia.yaml`
 
-Current non-Compose host-side modules:
+Current non-Compose host-side module:
 - optional blacklist module in `blacklist/`
 
 ### DNS Resolver
@@ -166,14 +168,32 @@ Files:
 - `dns/unbound.conf`
 - `dns/forward-records.conf`
 
-Behavior:
+Current behavior:
 - caching resolver
-- DNSSEC validation and hardening
+- DNSSEC validation and resolver hardening
 - DNS-over-TLS forwarding
-- dual-stack public upstream forwarding over IPv4 and IPv6
+- dual-stack upstream forwarding over IPv4 and IPv6
 - Emercoin-related stub zones
-- Docker-friendly stdout/stderr logging
+- Docker-friendly stdout and stderr logging
 - no host port exposure by default
+- intended for Docker and VPN clients on known networks rather than open internet exposure
+
+Important current network values:
+- internal network `obscura-dns`
+- internal IPv4 subnet `172.30.153.0/26`
+- internal IPv6 subnet `fd30:153::/64`
+- DNS container IPv4 `172.30.153.53`
+- DNS container IPv6 `fd30:153::53`
+- compatibility IPv4 on `amnezia-dns-net`: `172.29.172.153`
+
+Security posture:
+- not an open resolver by default
+- ACL-restricted to loopback, the internal Obscura subnet, and the compatibility IPv4 subnet
+
+Known implementation quirk:
+- `dns/unbound.conf` includes `a-records.conf` and `srv-records.conf`
+- those files are not present in this repo
+- treat this as an image-level assumption that may need revisiting if the base image behavior changes
 
 ### SOCKS5 Proxy
 
@@ -184,151 +204,91 @@ Files:
 - `socks5proxy/Dockerfile`
 - `socks5proxy/3proxy.base.cfg`
 - `socks5proxy/entrypoint.sh`
+- `socks5proxy/healthcheck.sh`
 
 Current design:
 - static baseline config is baked into the image
 - runtime entrypoint renders the effective `3proxy.cfg`
-- dynamic state can come from an Obscura-managed state directory or an Amnezia-compatible mounted config file
-- default state volume in Compose: `socks5proxy-data`
-- default state path in the container: `/var/lib/obscura/socks5proxy`
-- base Obscura mode uses a fixed internal listener port `1080`
-- base Obscura mode also defaults to publishing host port `1080`
-- `compose.amnezia.yaml` enables Amnezia mode by mounting `/srv/amnezia/socks5proxy/conf` read-only and setting `SOCKS5_COMPAT_CONFIG=/compat/3proxy.cfg`
-- Amnezia mode shares only SOCKS5 credentials with the externalized Amnezia config; it does not follow the Amnezia listen port
+- dynamic state can come from an Obscura-managed state directory or from an Amnezia-compatible mounted config file
+- the service listens on fixed internal port `1080`
+- host publishing is the operator-controlled customization point
 
 Current runtime behavior:
-- the image keeps the upstream 3proxy startup path instead of replacing it with a dummy long-running shell
-- the generated config is written to `/usr/local/3proxy/conf/3proxy.cfg`
-- the base 3proxy image then starts with `/etc/3proxy/3proxy.cfg`, preserving the upstream safe-chroot model
-- logs are configured for stdout rather than an internal log file
-- DNS resolution is rendered dynamically and defaults to Obscura's internal DNS service over both IPv4 and IPv6 (`172.30.153.53`, `fd30:153::53`) rather than hardcoded public resolvers
-- the default listen address is `::` so the service can accept both IPv4 and IPv6 connections when the network stack is configured for dual-stack operation
-- outbound source binding can be set explicitly with `SOCKS5_EXTERNAL_ADDR` as a simple fallback, or more precisely with the advanced per-family overrides `SOCKS5_EXTERNAL_ADDR_V4` and `SOCKS5_EXTERNAL_ADDR_V6`; if either family-specific variable is set, it takes precedence over the generic fallback
-- in Obscura mode the container always listens on `1080/tcp`; host publishing is the only port customization point
-- in Amnezia mode the container still listens on `1080/tcp`; only proxy credentials are imported from the externalized Amnezia config
-- outbound address-family selection is explicit via `SOCKS5_RESOLVE_MODE`; default is `prefer_ipv6`, which renders 3proxy's `-64` flag
-- the host-side validation helper `scripts/test-socks5proxy-host.sh` now separates raw SOCKS auth checks, raw SOCKS CONNECT checks, and HTTP-over-SOCKS checks so ingress/auth failures are not conflated with upstream egress failures
-- live validation confirmed that `prefer_ipv6` causes 3proxy to use IPv6 upstream addresses when AAAA records are available and container IPv6 egress is healthy
-- if no users are present and anonymous mode is not explicitly allowed, the Obscura-mode entrypoint bootstraps a managed single-user config into the state directory
-- the service now has a local Docker health check that verifies the rendered config exists, PID 1 is alive, and the expected TCP listener is present in `/proc/net/tcp` or `/proc/net/tcp6`
+- generated config is written to `/usr/local/3proxy/conf/3proxy.cfg`
+- DNS defaults to Obscura's internal DNS service over both IPv4 and IPv6
+- default listen address is `::` for dual-stack capable ingress
+- outbound family selection is explicit through `SOCKS5_RESOLVE_MODE`
+- if no users are present and anonymous mode is not explicitly allowed, Obscura mode bootstraps a managed single-user config
+- the container health check verifies the rendered config exists, PID 1 is alive, and the expected TCP listener is present
 
 Compatibility model:
 - Obscura-managed mode:
-  - use `socks5proxy-data` or a bind-mounted host directory as the canonical state source
-  - internal SOCKS5 listener port is fixed at `1080`
+  - canonical state comes from `socks5proxy-data` or an operator bind mount
   - dynamic files can include `users.list`, `username`, `password`, `auth_type`, and `extra.cfg`
 
 - Amnezia-compatible mode:
   - enabled through `compose.amnezia.yaml`
-  - mount `/srv/amnezia/socks5proxy/conf` read-only at `/compat`
-  - point `SOCKS5_COMPAT_CONFIG` to `/compat/3proxy.cfg`
-  - the entrypoint imports only the proxy users/passwords from the Amnezia `users ...` line
-  - the Obscura listener port remains `1080` and the published host port remains operator-controlled
-  - this mode is intended for side-by-side operation where `obscura-socks5proxy` extends rather than replaces `amnezia-socks5proxy`
-
-Multi-user support:
-- supported in Obscura-managed mode through `users.list`
-- not part of the current Amnezia UI model, which manages only one username/password pair
+  - mounts `/srv/amnezia/socks5proxy/conf` read-only at `/compat`
+  - points `SOCKS5_COMPAT_CONFIG` at `/compat/3proxy.cfg`
+  - imports only proxy credentials from the Amnezia `users ...` line
+  - keeps the Obscura listener port at `1080`
 
 Important limitation:
 - in Docker bridge mode, published host ports are static at container creation time
-- therefore, if an external Amnezia-managed config changes the SOCKS5 listen port, Obscura cannot follow that host-port change automatically without recreating the service or switching to host networking
-- for full compatibility with live Amnezia-managed port changes, host networking is the cleanest option on Linux
-
-### Networking
-
-Current internal network:
-- name: `obscura-dns`
-- IPv4 subnet: `172.30.153.0/26`
-- IPv6 subnet: `fd30:153::/64`
-
-Current optional external compatibility network:
-- name: `amnezia-dns-net`
-- IPv4 subnet expected by current code: `172.29.172.0/24`
-- attached only when `compose.amnezia.yaml` is used
-
-Current DNS container addresses:
-- internal IPv4: `172.30.153.53`
-- internal IPv6: `fd30:153::53`
-- compatibility IPv4 on `amnezia-dns-net`: `172.29.172.153`
-
-Important:
-- treat the code as authoritative unless and until it is intentionally changed
+- if an external Amnezia-managed config changes the SOCKS5 listen port, Obscura cannot follow that host-port change automatically without recreating the service or changing the networking model
 
 ### Blacklist Module
 
-Implemented module status:
-- implemented host-side CLI with real `check`, `status`, `apply`, `refresh`, `verify`, `flush`, `install-systemd`, and `uninstall-systemd` commands
-- remaining planned work includes operational hardening
+The blacklist module is the strongest current example of the project's intended implementation style.
+It is a host-side subsystem, not a Compose service.
 
 Purpose:
 - optional host-side egress filtering for Docker container traffic
-- driven by declarative domain and ASN category files under `blacklist/config/sources`
-- intended to block container destinations by generating kernel firewall objects rather than per-domain application logic
+- driven by declarative domain and ASN source files
+- enforced through kernel firewall objects rather than per-application logic
 
-Current backend model:
-- backend auto-detection with explicit override support
-- `iptables` backend requires `iptables`, `ip6tables`, and `ipset`
-- `nftables` backend requires `nft`
-- scripts must stop with a clear error if Docker is unavailable
-- scripts must not assume either firewall stack is installed
-- frontend family and implementation variant are tracked separately
-- `iptables` in `nf_tables` compatibility mode is still treated as the `iptables` backend
-- auto-detection prefers live Docker firewall evidence over raw binary presence
-- if Docker evidence strongly points to one frontend but that backend is unusable, commands should fail rather than silently switching
+Current status:
+- implemented host-side CLI with real `check`, `status`, `apply`, `refresh`, `verify`, `flush`, `install-systemd`, and `uninstall-systemd` commands
+- implemented desired-state rendering, persistence, backend-specific apply logic, verification, and systemd integration
+- remaining work is mostly operational hardening
 
-Current enforcement model:
-- dual-stack first: maintain separate IPv4 and IPv6 objects and rules
-- wildcard domain entries are ignored with a warning; only concrete hostnames are resolved
-- domain lists resolve to A and AAAA answers
-- if `BLACKLIST_RESOLVER` is set, domain lookups use that explicit DNS server list instead of the host system resolver
-- ASN lists expand to IPv4 and IPv6 prefixes via a cached HTTPS lookup against RIPE Stat
-- generated targets inside well-known local/private ranges are ignored with a warning so internal routing is not blacklisted by mistake
-- `iptables` backend maps per-category sets to `DOCKER-USER` rules in both `iptables` and `ip6tables`
-- generated blacklist rules are ordered with domain-derived categories before ASN-derived categories so broader ASN matches do not hide more specific domain hits in rule statistics
-- for the `iptables` backend, `DOCKER-USER` is normalized so the first rule is `RELATED,ESTABLISHED` accept and the last rule is `RETURN`
-- `nftables` backend maps per-category sets to rules in a dedicated Obscura-managed forward-hook table/chain
-- successful apply writes a persisted manifest under the configured state directory
-- successful apply/refresh also write `last_good_targets.json` and `health.json` under the configured state directory
-- refresh re-runs the same safe update pipeline as apply and is intended to be the timer-oriented maintenance entrypoint
-- the installed systemd service is enabled for boot and Docker starts so rules are restored as early as practical after system or Docker restart; the timer is only low-frequency maintenance
-- refresh/apply can reuse per-category last-known-good targets when fresh resolution produces no usable targets and the cached target set still matches the current source contents and freshness policy
-- verify compares live firewall state against the last successful persisted manifest
-- flush removes only Obscura-managed backend state and clears the persisted manifest, last-known-good target cache, and health state when present
-- apply emits stage-by-stage trace output so long resolution or backend updates are visible
-- apply refuses to replace a previously populated managed set with an empty one when source entries still exist and resolution produced no usable targets
-- install-systemd installs the launcher under `/usr/local/bin`, the Python package under `/usr/local/libexec/obscura-blacklist`, default config under `/etc/obscura-blacklist`, enables the service for boot and Docker starts, and enables the timer unit
-- uninstall-systemd removes only the installed systemd integration; it does not purge config, cache, state, launcher, or Python package files
-- persistence and periodic refresh should eventually be handled by `systemd`
+Current behavior summary:
+- Docker presence is mandatory
+- backend auto-detection supports `iptables` and `nftables`
+- dual-stack behavior is first-class
+- wildcard domains are ignored with warnings
+- domains resolve to A and AAAA answers
+- ASNs expand through cached RIPE Stat lookups
+- private and local ranges are filtered out conservatively
+- apply and refresh persist `last_apply.json`, `last_good_targets.json`, and `health.json`
+- stale last-known-good targets can be reused under policy when fresh resolution fails
+- verify compares live state against the last persisted manifest
+- flush removes only Obscura-managed state
 
-Current module layout:
-- `blacklist/bin/obscura-blacklist`
-- `blacklist/libexec/obscura_blacklist/`
-- `blacklist/systemd/`
-- `blacklist/config/blacklist.conf`
-- `blacklist/config/sources/`
+Operator wrappers:
+- `scripts/install-blacklist.sh`
+- `scripts/refresh-blacklist.sh`
+- `scripts/uninstall-blacklist.sh`
 
-### Security Model
+For blacklist-specific details, also read:
+- `blacklist/README.md`
+- `blacklist/AGENTS.md`
 
-Current DNS security posture:
-- not an open resolver by default
-- access restricted by Unbound ACLs
-- intended for Docker and VPN clients on known subnets
-- no external exposure unless the operator publishes ports explicitly
+### Scripts
 
-### IPv6 Model
+Top-level scripts are intentionally thin wrappers around stable module behavior or Compose entrypoints.
 
-For dual-stack behavior:
-- Docker daemon must have IPv6 enabled
-- Compose network must have IPv6 enabled
-- Unbound is configured to bind on `::0`
-- New services should bind on dual-stack listener addresses where the underlying software supports it
-- New services should prefer Obscura's internal dual-stack DNS endpoints instead of bypassing them with hardcoded public resolvers
-
-Helper script:
+Important scripts:
+- `scripts/install-docker-compose.sh`
 - `scripts/enable-docker-ipv6.sh`
+- `scripts/compose-amnezia.sh`
+- `scripts/externalize-amnezia-socks5proxy.sh`
+- `scripts/test-socks5proxy-host.sh`
+- blacklist install, refresh, and uninstall wrappers
 
-If IPv6 is unavailable, the service should still be usable over IPv4.
+The preferred pattern is:
+- Python core or declarative Compose logic for real behavior
+- thin shell wrappers for operator entrypoints
 
 ## Relationship To Upstream Amnezia
 
@@ -337,123 +297,31 @@ The `amnezia-client/` directory is a Git submodule pointing to the upstream Amne
 Its role in this repo:
 - source of protocol Dockerfiles
 - source of protocol config-generation scripts
-- source of startup/runtime behavior for containers
+- source of startup and runtime behavior for containers
 - reference for compatibility assumptions
 
 It is not the Obscura implementation itself.
 
-### Upstream Deployment Model
-
-Upstream Amnezia currently uses an imperative SSH-driven workflow:
-1. prepare host
-2. upload/build a protocol image
-3. run a container with `docker run`
-4. execute protocol-specific configuration scripts inside the container
-5. upload/start a startup script inside the container
-
-Relevant upstream code paths:
-- `amnezia-client/client/core/controllers/serverController.cpp`
-- `amnezia-client/client/core/scripts_registry.cpp`
-- `amnezia-client/client/server_scripts/*`
-
-Example protocol script families exist for:
-- `wireguard`
-- `awg`
-- `awg_legacy`
-- `xray`
-- `openvpn`
-- `openvpn_cloak`
-- `openvpn_shadowsocks`
-- `ipsec`
-- plus auxiliary containers such as `dns`, `sftp`, `socks5_proxy`, `website_tor`
-
-### Obscura Architectural Direction
-
-Obscura should translate the upstream behavior into a Compose-native model.
-
-That means:
-- services should be defined declaratively in `compose.yaml` or split Compose files
-- protocol state should live in explicit volumes instead of being implicitly created inside transient containers
-- startup/config generation should become durable server-side behavior rather than one-time SSH actions from the client
-- compatibility with Amnezia should be preserved where it matters, especially around network naming, protocol config formats, and expected filesystem layouts
+Upstream Amnezia currently uses an imperative SSH-driven deployment model.
+Obscura's architectural direction is to translate that behavior into a Compose-native model with explicit services, volumes, and durable server-side state.
 
 Do not blindly copy upstream scripts into the top-level project without adapting them to the Compose model.
-The key task is orchestration redesign, not just Dockerfile duplication.
-
-## Codebase Map
-
-Top-level areas:
-- `VERSION`
-  Canonical project version string in `Major.Minor.Patch` format.
-
-- `compose.yaml`
-  Current Compose definition for Obscura resources.
-
-- `dns/`
-  Real implemented DNS service.
-
-- `socks5proxy/`
-  Compose-native SOCKS5 module with a baked baseline config and a runtime config renderer.
-
-- `blacklist/`
-  Host-side blacklist module with operator documentation, config, category source lists, Python implementation, CLI entrypoint, and systemd unit templates.
-
-- `scripts/`
-  Host-side helper scripts for setup tasks.
-
-- `amnezia-client/`
-  Upstream reference implementation and compatibility source material.
-
-Important current files:
-- `compose.yaml`
-- `dns/Dockerfile`
-- `dns/unbound.conf`
-- `dns/forward-records.conf`
-- `socks5proxy/Dockerfile`
-- `socks5proxy/3proxy.base.cfg`
-- `socks5proxy/entrypoint.sh`
-- `blacklist/config/blacklist.conf`
-- `blacklist/bin/obscura-blacklist`
-- `blacklist/systemd/obscura-blacklist.service`
-- `blacklist/systemd/obscura-blacklist.timer`
-- `scripts/enable-docker-ipv6.sh`
-- `scripts/install-blacklist.sh`
-- `scripts/refresh-blacklist.sh`
-- `scripts/uninstall-blacklist.sh`
-- `scripts/install-docker-compose-plugin.sh`
-- `scripts/externalize-amnezia-socks5proxy.sh`
-- `scripts/test-socks5proxy-host.sh`
-
-Important upstream reference files:
-- `amnezia-client/client/core/controllers/serverController.cpp`
-- `amnezia-client/client/core/scripts_registry.cpp`
-- `amnezia-client/client/server_scripts/prepare_host.sh`
-- `amnezia-client/client/server_scripts/*`
+The task is orchestration redesign, not only Dockerfile reuse.
 
 ## Known Constraints And Gaps
 
-- Only DNS is implemented as a top-level Compose service.
-- The base `compose.yaml` is standalone and does not require `amnezia-dns-net`.
-- Side-by-side compatibility with vanilla Amnezia now lives in `compose.amnezia.yaml`, which requires the external network `amnezia-dns-net` to exist.
-- `compose.yaml` already reserves some future volumes, but they are not yet attached to working services.
-- The `socks5proxy` module exists as an opt-in service. Live validation has confirmed external IPv4 ingress, external IPv6 ingress, and IPv6-preferred upstream egress with `SOCKS5_RESOLVE_MODE=prefer_ipv6`.
-- The current Unbound config includes `a-records.conf` and `srv-records.conf`.
-  Those files are not present in this repo's `dns/` directory.
-  If the base image behavior changes, this assumption may need to be revisited.
-- There is not yet a documented persistence model for protocol state equivalent to upstream `/opt/amnezia/...`.
-- There is not yet a compatibility layer for importing existing Amnezia-managed protocol data.
-- The SOCKS5 module currently has two state models:
-  - structured Obscura-managed state in a volume or bind mount
-  - parsed compatibility input from an Amnezia-generated `3proxy.cfg`
-  This split is intentional for now but may be worth unifying later.
-- Full automatic compatibility with Amnezia-driven SOCKS5 port changes is not possible in normal bridge mode because Compose port publishing is static.
-- The SOCKS5 module now supports configurable outbound family preference. `prefer_ipv6` has been live-validated; the remaining modes (`auto`, `ipv6_only`, `prefer_ipv4`, `ipv4_only`) are still worth validating explicitly.
-- The blacklist module must treat Docker presence as mandatory, but it must not assume that either `iptables`/`ipset` or `nft` is installed.
-- Wildcard domain entries in blacklist source files are intentionally ignored with a warning rather than expanded heuristically.
-- The blacklist module supports an explicit `BLACKLIST_RESOLVER` override as a list of DNS server IP literals; if unset it still uses the host system resolver.
-- The blacklist module currently uses a RIPE Stat HTTPS lookup with a local cache for ASN expansion.
-- The blacklist module currently requires root privileges for `apply` and `verify`.
-- The blacklist module now has real `install-systemd` and `uninstall-systemd` helper commands in addition to the unit templates.
+- only DNS is implemented as a default Compose service
+- the base `compose.yaml` is standalone and does not require `amnezia-dns-net`
+- side-by-side compatibility with vanilla Amnezia lives in `compose.amnezia.yaml`, which requires the external network `amnezia-dns-net` to exist
+- `compose.yaml` already reserves some future volumes, but they are not yet attached to working services
+- the `socks5proxy` module exists as an opt-in service and already supports both Obscura-managed and Amnezia-compatible config sources
+- full automatic compatibility with Amnezia-driven SOCKS5 port changes is not possible in normal bridge mode because Compose port publishing is static
+- `SOCKS5_RESOLVE_MODE=prefer_ipv6` has been live-validated; the remaining modes are still worth validating explicitly
+- there is not yet a documented persistence model for full protocol state equivalent to upstream `/opt/amnezia/...`
+- there is not yet a compatibility layer for importing existing Amnezia-managed protocol data beyond current SOCKS5 compatibility support
+- the blacklist module must treat Docker presence as mandatory, but it must not assume that either `iptables` or `nft` tooling is installed
+- the blacklist module supports an explicit `BLACKLIST_RESOLVER` override and cached ASN expansion through RIPE Stat
+- the blacklist module currently requires root privileges for `apply`, `verify`, and `flush`
 
 ## Recommended Implementation Direction
 
@@ -473,28 +341,24 @@ Suggested early protocol candidates:
 
 They already have strong upstream script coverage and align with the repo's reserved volumes and stated goals.
 
-Near-term service work now includes:
-- validate the new `socks5proxy` module against a live Amnezia-managed SOCKS5 container
-- decide whether the preferred compatibility path should be:
-  - bridge mode + explicit recreate on port changes
-  - or Linux host networking for seamless port compatibility
-- document the recommended host bind-mount layout for service state under `/srv/amnezia/...`
-- use the existing one-shot SOCKS5 migration helper when converting a live Amnezia `amnezia-socks5proxy` container to host-backed `conf/` and `logs/`
-- use `scripts/compose-amnezia.sh` when operating the stack with the Amnezia overlay
-- prefer a Python-based resolution/render core with thin shell wrappers for install/apply flows
+Near-term service work includes:
+- continue validating the `socks5proxy` module against live Amnezia-managed setups
+- decide whether the preferred path for tighter SOCKS5 compatibility should be bridge mode with explicit recreate on port changes or Linux host networking
+- document a recommended host bind-mount layout for service state under `/srv/amnezia/...`
 - keep blacklist enforcement host-side rather than forcing it into a privileged Compose service
-- continue hardening blacklist refresh/restore semantics, especially around stale cache reuse and degraded-state reporting
+- continue hardening blacklist refresh, restore, and degraded-state reporting semantics
 
 ## Documentation Rules For Future Agents
 
 When working on this repo:
 - start by reading this file and `README.md`
 - verify claims against the actual code before updating docs
-- keep "current implementation" separate from "planned platform"
+- keep implemented behavior separate from planned platform direction
 - if you make a release-relevant change, consider whether `VERSION` should be bumped in the same work
 - if you add or remove services, update both this file and `README.md`
-- if you change networks, subnets, ports, or compatibility assumptions, update this file immediately
+- if you change networks, ports, state paths, or compatibility assumptions, update this file immediately
 - if you introduce a new architectural decision, capture it here so future agents do not have to rediscover it
+- if you change the blacklist module meaningfully, also update `blacklist/README.md` and `blacklist/AGENTS.md` as appropriate
 
-This file should remain the agent-facing source of truth.
-`README.md` should remain the user-facing homepage and installation manual.
+This file should remain the agent-facing technical source of truth.
+`README.md` should remain the compact user-facing entry point.
