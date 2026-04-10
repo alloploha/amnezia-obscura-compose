@@ -20,7 +20,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.16.0`
+Current project version: `0.17.0`
 
 Version file:
 - the repository root contains `VERSION`
@@ -286,6 +286,7 @@ Current implemented files:
 - `scripts/manage-xray-clients.sh`
 - `scripts/import-amnezia-xray.sh`
 - `scripts/test-xray-host.sh`
+- `scripts/upgrade-xray-engine.sh`
 
 Current image-build behavior:
 - the Xray image uses a multi-stage Docker build
@@ -351,6 +352,12 @@ Current host-side client-management model:
 - in standalone mode, `add` and `remove` update the live local `clients.json`, then restart the Xray container so the entrypoint regenerates `server.json`
 - in compatibility mode, `add` and `remove` update the shared Amnezia `server.json` client list in place, then restart the Xray container so the entrypoint refreshes its local snapshot and re-renders the local `server.json`
 - `export` renders a concrete client config from the persisted client template, the selected client registry entry, and the live Reality key material
+
+Current host-side maintenance helpers:
+- `scripts/upgrade-xray-engine.sh` supports `current`, `compare`, and `upgrade`
+- it is intended for rare urgent in-place Xray binary updates without rebuilding the whole container image layer
+- it downloads and extracts the upstream Xray release on the host, copies only the `xray` binary into the container with `docker cp`, restarts the container, and verifies the installed version
+- it supports both the vanilla `amnezia-xray` container and Obscura's `xray` container by detecting the actual in-container `xray` path before replacement
 
 Current import and migration model:
 - `scripts/externalize-amnezia-xray.sh` recreates a live Amnezia-style Xray container with a host bind mount on `/opt/amnezia/xray`, making the Amnezia container effectively stateless and exposing its durable state under `/srv/amnezia/xray` by default
@@ -440,6 +447,7 @@ Tracked implementation steps:
 - completed: document the recommended host bind-mount layout and migration path
 - completed: add live Xray compatibility mode that mounts `/srv/amnezia/xray` and shares client and key state while keeping per-instance rendered config local
 - completed: split Xray internal listen port from published host port and make client export paths use the published port
+- completed: add an in-place Xray engine upgrade helper that copies only the extracted binary into a running container
 
 ### Blacklist Module
 
