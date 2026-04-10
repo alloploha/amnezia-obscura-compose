@@ -11,7 +11,8 @@ CLIENTS_JSON="$STATE_DIR/clients.json"
 EXPORTED_CLIENT_TEMPLATE="$STATE_DIR/client.template.json"
 
 LISTEN_ADDR=${XRAY_LISTEN_ADDR:-::}
-SERVER_PORT=${XRAY_SERVER_PORT:-443}
+LISTEN_PORT=${XRAY_LISTEN_PORT:-443}
+PUBLISHED_PORT=${XRAY_PUBLISHED_PORT:-443}
 SITE_NAME=${XRAY_SITE_NAME:-www.googletagmanager.com}
 LOG_LEVEL=${XRAY_LOG_LEVEL:-warning}
 BOOTSTRAP_CLIENT_FLOW=${XRAY_BOOTSTRAP_CLIENT_FLOW:-xtls-rprx-vision}
@@ -190,7 +191,7 @@ render_server_config() {
         -v listen_addr="$LISTEN_ADDR" \
         -v log_level="$LOG_LEVEL" \
         -v private_key="$PRIVATE_KEY" \
-        -v server_port="$SERVER_PORT" \
+        -v listen_port="$LISTEN_PORT" \
         -v site_name="$SITE_NAME" \
         -v short_id="$SHORT_ID" \
         -v clients_file="$CLIENTS_JSON" '
@@ -214,7 +215,7 @@ render_server_config() {
             gsub("__XRAY_LISTEN_ADDR__", listen_addr, line)
             gsub("__XRAY_LOG_LEVEL__", log_level, line)
             gsub("__XRAY_PRIVATE_KEY__", private_key, line)
-            gsub("__XRAY_SERVER_PORT__", server_port, line)
+            gsub("__XRAY_LISTEN_PORT__", listen_port, line)
             gsub("__XRAY_SITE_NAME__", site_name, line)
             gsub("__XRAY_SHORT_ID__", short_id, line)
 
@@ -247,8 +248,13 @@ publish_compatibility_view() {
     ensure_symlink "$EXPORTED_CLIENT_TEMPLATE" "$AMNEZIA_DIR/client.template.json"
 }
 
-if ! validate_port "$SERVER_PORT"; then
-    echo "Invalid XRAY_SERVER_PORT: $SERVER_PORT" >&2
+if ! validate_port "$LISTEN_PORT"; then
+    echo "Invalid XRAY_LISTEN_PORT: $LISTEN_PORT" >&2
+    exit 1
+fi
+
+if ! validate_port "$PUBLISHED_PORT"; then
+    echo "Invalid XRAY_PUBLISHED_PORT: $PUBLISHED_PORT" >&2
     exit 1
 fi
 
@@ -271,7 +277,8 @@ else
     echo "xray compatibility state dir: none"
 fi
 echo "xray listen addr: $LISTEN_ADDR"
-echo "xray server port: $SERVER_PORT"
+echo "xray listen port: $LISTEN_PORT"
+echo "xray published port: $PUBLISHED_PORT"
 echo "xray site name: $SITE_NAME"
 
 exec "$@"

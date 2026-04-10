@@ -5,7 +5,7 @@
     "inbounds": [
         {
             "listen": "__XRAY_LISTEN_ADDR__",
-            "port": __XRAY_SERVER_PORT__,
+            "port": __XRAY_LISTEN_PORT__,
             "protocol": "vless",
             "settings": {
 __XRAY_CLIENTS_BLOCK__

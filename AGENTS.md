@@ -20,7 +20,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.15.1`
+Current project version: `0.16.0`
 
 Version file:
 - the repository root contains `VERSION`
@@ -295,7 +295,8 @@ Current image-build behavior:
 Current implemented Compose behavior:
 - the service is enabled through the `xray` Compose profile
 - the service depends on `dns`
-- the service publishes `${XRAY_SERVER_PORT}:${XRAY_SERVER_PORT}/tcp`
+- the service listens internally on `${XRAY_LISTEN_PORT:-443}`
+- the service publishes `${XRAY_PUBLISHED_PORT}:${XRAY_LISTEN_PORT}/tcp`
 - the service mounts `xray-data` at `${XRAY_STATE_DIR:-/var/lib/obscura/xray}`
 - standalone mode uses only the local Obscura state volume or bind mount
 - `compose.amnezia.yaml` attaches the service to the optional external network `amnezia-dns-net`
@@ -317,6 +318,7 @@ Current startup behavior:
 - render the persisted client template with the bootstrap client flow so server-side and exported client-side flow semantics stay aligned
 - render the local Obscura `server.json` from `server.template.json`
 - publish an Amnezia-style compatibility view under `/opt/amnezia/xray` where the rendered config and exported client template are local to the Obscura instance, while shared key files point at the externalized Amnezia state when compatibility mode is enabled
+- export and test helpers must use the published host port, not the internal listen port, so generated client configs remain correct when operators remap the external port
 
 Current state ownership model:
 - standalone Obscura mode:
@@ -330,7 +332,7 @@ Current state ownership model:
     - `xray_public.key`
     - `xray_private.key`
   - Obscura-local per-instance files under `${XRAY_STATE_DIR:-/var/lib/obscura/xray}` are:
-    - `server.json` rendered with the Obscura instance's own listen address, published port, log level, and site name
+    - `server.json` rendered with the Obscura instance's own listen address, internal listen port, log level, and site name
     - `client.template.json`
     - `clients.json` as a regenerated local snapshot derived from the shared Amnezia client list
   - this split is intentional so multiple Obscura Xray instances can share credentials and Reality key material while still differing in instance-local parameters such as port or SNI
@@ -368,7 +370,7 @@ Current limitations:
 - the current client registry stores only `id` and `flow`; richer per-client metadata such as names, notes, or enabled flags is not implemented yet
 - the image still downloads Xray from upstream release artifacts during `docker build`, but now does so in a builder stage rather than the final runtime image
 - the current host-side validation script exercises the bootstrap client path by rendering a temporary client config and probing a known web site through a temporary host-networked Xray client container
-- imported live apply currently requires the running Obscura Xray `XRAY_SERVER_PORT` and `XRAY_SITE_NAME` to already match the imported Amnezia state; the helper does not rewrite Compose configuration automatically
+- imported live apply currently requires the running Obscura Xray `XRAY_PUBLISHED_PORT` and `XRAY_SITE_NAME` to already match the imported Amnezia state; the helper does not rewrite Compose configuration automatically
 - the externalize helper preserves the Amnezia container image, published ports, restart policy, log settings, environment, `--privileged`, `--cap-add`, and existing non-Xray bind mounts
 - compatibility mode intentionally does not share the Amnezia `server.json` wholesale as the runtime config, because that file also contains per-container settings such as port, listen address, and fake site name that should be allowed to diverge across multiple Obscura Xray instances
 
@@ -437,6 +439,7 @@ Tracked implementation steps:
 - completed: add a one-shot externalize and import helper path for existing Amnezia Xray deployments
 - completed: document the recommended host bind-mount layout and migration path
 - completed: add live Xray compatibility mode that mounts `/srv/amnezia/xray` and shares client and key state while keeping per-instance rendered config local
+- completed: split Xray internal listen port from published host port and make client export paths use the published port
 
 ### Blacklist Module
 

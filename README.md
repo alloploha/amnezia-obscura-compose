@@ -4,7 +4,7 @@ Obscura is a Docker Compose based, Amnezia-compatible server-side deployment lay
 
 Russian version: [README.ru.md](README.ru.md)
 
-Current project version: `0.15.1`
+Current project version: `0.16.0`
 
 Obscura is not a fork of the Amnezia app.
 It is a separate project that aims to make the server side easier to run and manage directly with Docker Compose.
@@ -98,6 +98,7 @@ docker compose --profile xray up -d --build
 This currently gives you a Compose-managed Xray service with generated persistent server state.
 When used with the Amnezia overlay and an externalized `/srv/amnezia/xray`, it can reuse Amnezia-managed Xray clients and key material while keeping Obscura-specific instance settings separate.
 For that side-by-side mode, the host also needs the `amnezia-dns-net` Docker network that vanilla Amnezia normally creates.
+If you publish Xray on a different host port, the helper scripts export client configs with that published port automatically.
 
 Use the Amnezia compatibility overlay:
 

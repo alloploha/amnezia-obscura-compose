@@ -89,12 +89,13 @@ services:
     environment:
       XRAY_BOOTSTRAP_CLIENT_FLOW: ${XRAY_BOOTSTRAP_CLIENT_FLOW:-xtls-rprx-vision}
       XRAY_LISTEN_ADDR: ${XRAY_LISTEN_ADDR:-::}
+      XRAY_LISTEN_PORT: ${XRAY_LISTEN_PORT:-443}
       XRAY_LOG_LEVEL: ${XRAY_LOG_LEVEL:-warning}
-      XRAY_SERVER_PORT: ${XRAY_SERVER_PORT:-443}
+      XRAY_PUBLISHED_PORT: ${XRAY_PUBLISHED_PORT:-443}
       XRAY_SITE_NAME: ${XRAY_SITE_NAME:-www.googletagmanager.com}
       XRAY_STATE_DIR: ${XRAY_STATE_DIR:-/var/lib/obscura/xray}
     ports:
-      - "${XRAY_SERVER_PORT:-443}:${XRAY_SERVER_PORT:-443}/tcp"
+      - "${XRAY_PUBLISHED_PORT:-443}:${XRAY_LISTEN_PORT:-443}/tcp"
     networks:
       - dns
     volumes:

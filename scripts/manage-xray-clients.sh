@@ -21,7 +21,8 @@ RESTART_TIMEOUT="$DEFAULT_RESTART_TIMEOUT"
 
 TMPDIR=""
 BOOTSTRAP_ID=""
-SERVER_PORT=""
+LISTEN_PORT=""
+PUBLISHED_PORT=""
 PUBLIC_KEY=""
 SHORT_ID=""
 SITE_NAME=""
@@ -239,14 +240,21 @@ discover_paths() {
 
 discover_server_port() {
     local port_lines
+    local container_port
 
-    port_lines="$(docker port "$CONTAINER_NAME" 443/tcp 2>/dev/null || true)"
+    LISTEN_PORT="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" | sed -n 's/^XRAY_LISTEN_PORT=//p' | head -n 1)"
+    if ! validate_numeric_port "$LISTEN_PORT"; then
+        LISTEN_PORT="443"
+    fi
+
+    container_port="${LISTEN_PORT}/tcp"
+    port_lines="$(docker port "$CONTAINER_NAME" "$container_port" 2>/dev/null || true)"
     if [ -z "$port_lines" ]; then
         port_lines="$(docker port "$CONTAINER_NAME" 2>/dev/null || true)"
     fi
 
-    SERVER_PORT="$(printf '%s\n' "$port_lines" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
-    if ! validate_numeric_port "$SERVER_PORT"; then
+    PUBLISHED_PORT="$(printf '%s\n' "$port_lines" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
+    if ! validate_numeric_port "$PUBLISHED_PORT"; then
         printf 'ERROR: could not determine published Xray port for %s\n' "$CONTAINER_NAME" >&2
         exit 1
     fi
@@ -551,7 +559,7 @@ EOF
         "$CLIENT_ID" \
         "$selected_flow" \
         "$SERVER_HOST" \
-        "$SERVER_PORT" \
+        "$PUBLISHED_PORT" \
         "$SITE_NAME" \
         "$PUBLIC_KEY" \
         "$SHORT_ID" \
@@ -565,7 +573,7 @@ import sys
     client_id,
     flow,
     server_host,
-    server_port,
+    published_port,
     site_name,
     public_key,
     short_id,
@@ -578,7 +586,7 @@ with open(template_path, "r", encoding="utf-8") as fh:
 
 replacements = {
     "$SERVER_IP_ADDRESS": server_host,
-    "$XRAY_SERVER_PORT": server_port,
+    "$XRAY_PUBLISHED_PORT": published_port,
     "$XRAY_CLIENT_ID": client_id,
     "$XRAY_SITE_NAME": site_name,
     "$XRAY_PUBLIC_KEY": public_key,

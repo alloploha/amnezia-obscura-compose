@@ -53,7 +53,7 @@ By default it writes that imported state to:
 
 With --apply-live it also copies the imported state into the running Obscura
 Xray service and restarts that service. Live apply is intentionally strict:
-the running Obscura Xray server port and site name must already match the
+the running Obscura Xray published port and site name must already match the
 imported Amnezia state, otherwise the script fails with a clear message.
 
 Options:
@@ -397,25 +397,30 @@ read_target_env_value() {
 validate_live_target_settings() {
     local imported_port
     local imported_site
+    local target_listen_port
     local target_port
     local target_site
 
     imported_port="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("source_server_port",""))' "$IMPORT_METADATA_JSON")"
     imported_site="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("source_site_name",""))' "$IMPORT_METADATA_JSON")"
 
-    target_port="$(read_target_env_value XRAY_SERVER_PORT)"
+    target_listen_port="$(read_target_env_value XRAY_LISTEN_PORT)"
+    target_port="$(read_target_env_value XRAY_PUBLISHED_PORT)"
     target_site="$(read_target_env_value XRAY_SITE_NAME)"
 
+    if [ -z "$target_listen_port" ]; then
+        target_listen_port="443"
+    fi
     if [ -z "$target_port" ]; then
-        target_port="$(docker exec "$TARGET_CONTAINER" sh -lc "sed -n 's/.*\"port\":[[:space:]]*\\([0-9][0-9]*\\).*/\\1/p' /opt/amnezia/xray/server.json | head -n 1")"
+        target_port="$(docker port "$TARGET_CONTAINER" "${target_listen_port}/tcp" 2>/dev/null | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
     fi
     if [ -z "$target_site" ]; then
         target_site="$(docker exec "$TARGET_CONTAINER" sh -lc "awk '/\"serverNames\"[[:space:]]*:/ {getline; if (match(\\$0, /\"[^\"]+\"/)) { value = substr(\\$0, RSTART + 1, RLENGTH - 2); print value; exit }}' /opt/amnezia/xray/server.json")"
     fi
 
     if [ -n "$imported_port" ] && [ -n "$target_port" ] && [ "$imported_port" != "$target_port" ]; then
-        printf 'ERROR: imported Xray port (%s) does not match live Obscura Xray port (%s)\n' "$imported_port" "$target_port" >&2
-        printf 'ERROR: recreate the Obscura xray service with XRAY_SERVER_PORT=%s before using --apply-live\n' "$imported_port" >&2
+        printf 'ERROR: imported Xray port (%s) does not match live Obscura Xray published port (%s)\n' "$imported_port" "$target_port" >&2
+        printf 'ERROR: recreate the Obscura xray service with XRAY_PUBLISHED_PORT=%s before using --apply-live\n' "$imported_port" >&2
         exit 1
     fi
 

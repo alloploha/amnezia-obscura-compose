@@ -23,7 +23,8 @@ FAIL_COUNT=0
 SKIP_COUNT=0
 
 TMPDIR=""
-SERVER_PORT=""
+LISTEN_PORT=""
+PUBLISHED_PORT=""
 CLIENT_ID=""
 CLIENT_FLOW=""
 PUBLIC_KEY=""
@@ -201,14 +202,21 @@ require_healthy_server() {
 
 discover_server_port() {
     local port_lines
+    local container_port
 
-    port_lines="$(docker port "$CONTAINER_NAME" 443/tcp 2>/dev/null || true)"
+    LISTEN_PORT="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" | sed -n 's/^XRAY_LISTEN_PORT=//p' | head -n 1)"
+    if ! validate_numeric_port "$LISTEN_PORT"; then
+        LISTEN_PORT="443"
+    fi
+
+    container_port="${LISTEN_PORT}/tcp"
+    port_lines="$(docker port "$CONTAINER_NAME" "$container_port" 2>/dev/null || true)"
     if [ -z "$port_lines" ]; then
         port_lines="$(docker port "$CONTAINER_NAME" 2>/dev/null || true)"
     fi
 
-    SERVER_PORT="$(printf '%s\n' "$port_lines" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
-    if ! validate_numeric_port "$SERVER_PORT"; then
+    PUBLISHED_PORT="$(printf '%s\n' "$port_lines" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
+    if ! validate_numeric_port "$PUBLISHED_PORT"; then
         printf 'ERROR: could not determine published Xray port for %s\n' "$CONTAINER_NAME" >&2
         exit 1
     fi
@@ -247,7 +255,7 @@ render_client_config() {
 
     sed \
         -e "s|\\\$SERVER_IP_ADDRESS|$SERVER_HOST|g" \
-        -e "s|\\\$XRAY_SERVER_PORT|$SERVER_PORT|g" \
+        -e "s|\\\$XRAY_PUBLISHED_PORT|$PUBLISHED_PORT|g" \
         -e "s|\\\$XRAY_CLIENT_ID|$CLIENT_ID|g" \
         -e "s|\\\$XRAY_SITE_NAME|$SITE_NAME|g" \
         -e "s|\\\$XRAY_PUBLIC_KEY|$PUBLIC_KEY|g" \
@@ -366,7 +374,8 @@ main() {
     read_live_state
 
     log "Discovered Xray container: $CONTAINER_NAME"
-    log "Published Xray server port: $SERVER_PORT"
+    log "Xray listen port inside container: $LISTEN_PORT"
+    log "Published Xray server port: $PUBLISHED_PORT"
     log "Temporary client server host: $SERVER_HOST"
     log "Temporary local SOCKS port: $LOCAL_SOCKS_PORT"
     log "Bootstrap client id: $CLIENT_ID"
