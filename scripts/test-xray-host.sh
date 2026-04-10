@@ -217,19 +217,19 @@ discover_server_port() {
 read_live_state() {
     CLIENT_ID="$(
         docker exec "$CONTAINER_NAME" sh -lc \
-            "sed -n 's/.*\"id\":[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' /var/lib/obscura/xray/clients.json | head -n 1"
+            "sed -n 's/.*\"id\":[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' /opt/amnezia/xray/clients.json | head -n 1"
     )"
 
     CLIENT_FLOW="$(
         docker exec "$CONTAINER_NAME" sh -lc \
-            "sed -n 's/.*\"flow\":[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' /var/lib/obscura/xray/clients.json | head -n 1"
+            "sed -n 's/.*\"flow\":[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' /opt/amnezia/xray/clients.json | head -n 1"
     )"
 
-    PUBLIC_KEY="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /var/lib/obscura/xray/xray_public.key')"
-    SHORT_ID="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /var/lib/obscura/xray/xray_short_id.key')"
+    PUBLIC_KEY="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /opt/amnezia/xray/xray_public.key')"
+    SHORT_ID="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /opt/amnezia/xray/xray_short_id.key')"
     SITE_NAME="$(
         docker exec "$CONTAINER_NAME" sh -lc \
-            "awk '/\"serverNames\"[[:space:]]*:/ {getline; if (match(\$0, /\"[^\"]+\"/)) { value = substr(\$0, RSTART + 1, RLENGTH - 2); print value; exit }}' /var/lib/obscura/xray/server.json"
+            "awk '/\"serverNames\"[[:space:]]*:/ {getline; if (match(\$0, /\"[^\"]+\"/)) { value = substr(\$0, RSTART + 1, RLENGTH - 2); print value; exit }}' /opt/amnezia/xray/server.json"
     )"
 
     if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_FLOW" ] || [ -z "$PUBLIC_KEY" ] || [ -z "$SHORT_ID" ] || [ -z "$SITE_NAME" ]; then
@@ -242,7 +242,7 @@ render_client_config() {
     TMPDIR="$(mktemp -d)"
     RENDERED_CLIENT_CONFIG="$TMPDIR/xray-client.json"
 
-    docker exec "$CONTAINER_NAME" sh -lc 'cat /var/lib/obscura/xray/client.template.json' \
+    docker exec "$CONTAINER_NAME" sh -lc 'cat /opt/amnezia/xray/client.template.json' \
         >"$TMPDIR/client.template.json"
 
     sed \

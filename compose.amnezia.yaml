@@ -11,8 +11,12 @@ services:
       - /srv/amnezia/socks5proxy/conf:/compat:ro
 
   xray:
+    environment:
+      XRAY_COMPAT_STATE_DIR: /compat/xray
     networks:
       - amnezia-dns
+    volumes:
+      - /srv/amnezia/xray:/compat/xray
 
 networks:
   amnezia-dns:

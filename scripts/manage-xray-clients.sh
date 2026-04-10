@@ -27,6 +27,8 @@ SHORT_ID=""
 SITE_NAME=""
 CLIENT_TEMPLATE_PATH=""
 CLIENTS_JSON_PATH=""
+REGISTRY_MODE="local"
+REGISTRY_SERVER_JSON_PATH=""
 
 usage() {
     cat <<'EOF'
@@ -217,6 +219,22 @@ require_running_server() {
 discover_paths() {
     CLIENTS_JSON_PATH="/var/lib/obscura/xray/clients.json"
     CLIENT_TEMPLATE_PATH="/var/lib/obscura/xray/client.template.json"
+
+    REGISTRY_MODE="$(
+        docker exec "$CONTAINER_NAME" sh -lc '
+            if [ -n "${XRAY_COMPAT_STATE_DIR:-}" ] && [ -s "${XRAY_COMPAT_STATE_DIR}/server.json" ]; then
+                printf compat
+            else
+                printf local
+            fi
+        '
+    )"
+
+    if [ "$REGISTRY_MODE" = "compat" ]; then
+        REGISTRY_SERVER_JSON_PATH="$(
+            docker exec "$CONTAINER_NAME" sh -lc 'printf "%s/server.json" "$XRAY_COMPAT_STATE_DIR"'
+        )"
+    fi
 }
 
 discover_server_port() {
@@ -235,12 +253,12 @@ discover_server_port() {
 }
 
 read_live_state() {
-    BOOTSTRAP_ID="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /var/lib/obscura/xray/xray_uuid.key')"
-    PUBLIC_KEY="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /var/lib/obscura/xray/xray_public.key')"
-    SHORT_ID="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /var/lib/obscura/xray/xray_short_id.key')"
+    BOOTSTRAP_ID="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /opt/amnezia/xray/xray_uuid.key')"
+    PUBLIC_KEY="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /opt/amnezia/xray/xray_public.key')"
+    SHORT_ID="$(docker exec "$CONTAINER_NAME" sh -lc 'cat /opt/amnezia/xray/xray_short_id.key')"
     SITE_NAME="$(
         docker exec "$CONTAINER_NAME" sh -lc \
-            "awk '/\"serverNames\"[[:space:]]*:/ {getline; if (match(\$0, /\"[^\"]+\"/)) { value = substr(\$0, RSTART + 1, RLENGTH - 2); print value; exit }}' /var/lib/obscura/xray/server.json"
+            "awk '/\"serverNames\"[[:space:]]*:/ {getline; if (match(\$0, /\"[^\"]+\"/)) { value = substr(\$0, RSTART + 1, RLENGTH - 2); print value; exit }}' /opt/amnezia/xray/server.json"
     )"
 
     if [ -z "$BOOTSTRAP_ID" ] || [ -z "$PUBLIC_KEY" ] || [ -z "$SHORT_ID" ] || [ -z "$SITE_NAME" ]; then
@@ -263,11 +281,67 @@ prepare_tmpdir() {
 
 fetch_clients_registry() {
     prepare_tmpdir
+
+    if [ "$REGISTRY_MODE" = "compat" ]; then
+        docker exec "$CONTAINER_NAME" sh -lc "cat '$REGISTRY_SERVER_JSON_PATH'" >"$TMPDIR/server.json"
+
+        python3 - "$TMPDIR/server.json" "$TMPDIR/clients.json" <<'EOF'
+import json
+import sys
+
+server_path, clients_path = sys.argv[1:3]
+
+with open(server_path, "r", encoding="utf-8") as fh:
+    server = json.load(fh)
+
+clients = (
+    server.get("inbounds", [{}])[0]
+    .get("settings", {})
+    .get("clients", [])
+)
+
+with open(clients_path, "w", encoding="utf-8") as fh:
+    json.dump(clients, fh, indent=2)
+    fh.write("\n")
+EOF
+        return
+    fi
+
     docker exec "$CONTAINER_NAME" sh -lc "cat '$CLIENTS_JSON_PATH'" >"$TMPDIR/clients.json"
 }
 
 write_clients_registry() {
     local source_path="$1"
+
+    if [ "$REGISTRY_MODE" = "compat" ]; then
+        prepare_tmpdir
+        docker exec "$CONTAINER_NAME" sh -lc "cat '$REGISTRY_SERVER_JSON_PATH'" >"$TMPDIR/server.json"
+
+        python3 - "$TMPDIR/server.json" "$source_path" <<'EOF'
+import json
+import sys
+
+server_path, clients_path = sys.argv[1:3]
+
+with open(server_path, "r", encoding="utf-8") as fh:
+    server = json.load(fh)
+
+with open(clients_path, "r", encoding="utf-8") as fh:
+    clients = json.load(fh)
+
+try:
+    server["inbounds"][0]["settings"]["clients"] = clients
+except (KeyError, IndexError, TypeError) as exc:
+    raise SystemExit(f"ERROR: unsupported Xray server.json structure: {exc}")
+
+with open(server_path, "w", encoding="utf-8") as fh:
+    json.dump(server, fh, indent=4)
+    fh.write("\n")
+EOF
+
+        docker exec -i "$CONTAINER_NAME" sh -lc "umask 077 && cat > '$REGISTRY_SERVER_JSON_PATH'" <"$TMPDIR/server.json"
+        return
+    fi
 
     docker exec -i "$CONTAINER_NAME" sh -lc "umask 077 && cat > '$CLIENTS_JSON_PATH'" <"$source_path"
 }
