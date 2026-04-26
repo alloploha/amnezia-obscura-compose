@@ -1,4 +1,4 @@
-FROM 3proxy/3proxy:latest
+FROM 3proxy/3proxy:busybox
 
 COPY 3proxy.base.cfg /opt/obscura/3proxy.base.cfg
 COPY entrypoint.sh /opt/obscura/entrypoint.sh
