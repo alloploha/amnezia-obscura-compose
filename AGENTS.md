@@ -20,7 +20,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.17.0`
+Current project version: `0.18.0`
 
 Version file:
 - the repository root contains `VERSION`
