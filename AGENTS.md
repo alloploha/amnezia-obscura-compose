@@ -20,7 +20,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.18.0`
+Current project version: `0.19.0`
 
 Version file:
 - the repository root contains `VERSION`
@@ -82,10 +82,11 @@ The long-term target is a fuller server stack where DNS and VPN services are man
 Current implementation status:
 - implemented: private DNS resolver based on Unbound
 - implemented as an opt-in profile: Compose-native SOCKS5 proxy module based on 3proxy
+- implemented as an early opt-in profile: Compose-native AWG module using userspace `amneziawg-go`, persistent state, client export tooling, import helpers, and side-by-side shared-key compatibility
 - implemented as an early opt-in profile: Compose-native Xray module with persistent state generation, client-management helpers, migration tooling, and side-by-side shared-state compatibility
 - implemented as a host-side module: blacklist inspection, backend auto-detection, apply, refresh, verify, flush, and systemd install/remove flows for Docker egress filtering
 - partially prepared: helper scripts, compatibility overlays, and reserved volumes for future protocol services
-- not yet implemented as Compose services: WireGuard, AWG, OpenVPN, IPsec, and other VPN containers
+- not yet implemented as Compose services: WireGuard, OpenVPN, IPsec, and other VPN containers
 
 Be precise in docs and code comments:
 - current product: DNS resolver plus groundwork
@@ -137,6 +138,9 @@ Important top-level areas:
 - `socks5proxy/`
   Optional Compose-native SOCKS5 module.
 
+- `awg/`
+  Optional Compose-native AWG module.
+
 - `blacklist/`
   Optional host-side blacklist module with its own user-facing and agent-facing docs.
 
@@ -151,8 +155,9 @@ Important top-level areas:
 Current Compose resources:
 - default service: `dns`
 - opt-in profile service: `socks5proxy`
+- opt-in profile service: `awg`
 - opt-in profile service: `xray`
-- reserved volume for future work: `awg-data`
+- current service data volume: `awg-data`
 - current service data volume: `socks5proxy-data`
 - current service data volume: `xray-data`
 - internal network: `obscura-dns`
@@ -239,6 +244,95 @@ Compatibility model:
 Important limitation:
 - in Docker bridge mode, published host ports are static at container creation time
 - if an external Amnezia-managed config changes the SOCKS5 listen port, Obscura cannot follow that host-port change automatically without recreating the service or changing the networking model
+
+### AWG Module
+
+Implementation status:
+- implemented as an early opt-in Compose profile
+- current work covers image build, first-start key generation, template rendering, health checks, client-management helpers, import/externalize tooling, and side-by-side compatibility with externalized Amnezia AWG state
+
+Upstream Amnezia model summary:
+- build an image from `client/server_scripts/awg/Dockerfile`
+- run it with broad privileges, including `--privileged`, `NET_ADMIN`, `SYS_MODULE`, host `/lib/modules`, and `net.ipv4.conf.all.src_valid_mark=1`
+- exec a one-shot configure script that writes keys and `/opt/amnezia/awg/awg0.conf`
+- start AWG through `awg-quick`, which creates the interface, applies addresses, applies peer config, routes, and firewall/NAT rules
+
+Obscura should preserve:
+- upstream-compatible AWG key file names under `/opt/amnezia/awg`
+- upstream-compatible AWG config fields, including `Jc`, `Jmin`, `Jmax`, `S1` through `S4`, `H1` through `H4`, and `I1` through `I5`
+- default AWG listen port `55424`
+- default AWG server subnet behavior based on `10.8.1.0/24`
+- client config semantics compatible with Amnezia's AWG client template
+
+Obscura intentionally replaces:
+- broad privileged container execution with a userspace `amneziawg-go` container that needs only `/dev/net/tun` and `NET_ADMIN`
+- runtime dependence on the Amnezia kernel module, `SYS_MODULE`, host `/lib/modules`, and `--privileged`
+- `awg-quick` as the main startup path with a controlled entrypoint that creates the userspace interface, applies `awg setconf`, assigns the interface address, and installs only the minimal NAT rules needed for container egress
+- one-shot container mutation as the primary lifecycle with durable state under an explicit Compose volume
+
+Current implemented files:
+- `awg/Dockerfile`
+- `awg/entrypoint.sh`
+- `awg/healthcheck.sh`
+- `awg/awg0.template.conf`
+- `awg/client.template.conf`
+- `scripts/manage-awg-clients.sh`
+- `scripts/import-amnezia-awg.sh`
+- `scripts/externalize-amnezia-awg.sh`
+- `scripts/test-awg-host.sh`
+- `scripts/test-awg-migration.sh`
+
+Current implemented Compose behavior:
+- the service is enabled through the `awg` Compose profile
+- the service depends on `dns`
+- the service publishes `${AWG_PUBLISHED_PORT:-55424}:${AWG_LISTEN_PORT:-55424}/udp`
+- the service mounts `awg-data` at `${AWG_STATE_DIR:-/var/lib/obscura/awg}`
+- the service adds `NET_ADMIN` and mounts `/dev/net/tun`
+- the service does not use `privileged`, `SYS_MODULE`, host `/lib/modules`, or `net.ipv4.conf.all.src_valid_mark=1`
+- `compose.amnezia.yaml` attaches the service to optional `amnezia-dns-net`
+- `compose.amnezia.yaml` mounts `/srv/amnezia/awg` at `/compat/awg` and sets `AWG_COMPAT_STATE_DIR=/compat/awg`
+
+Current startup behavior:
+- in standalone mode, generate `wireguard_server_private_key.key`, `wireguard_server_public_key.key`, and `wireguard_psk.key` if absent
+- in compatibility mode, require the externalized Amnezia key files and `awg0.conf` under `${AWG_COMPAT_STATE_DIR}`
+- in compatibility mode, use the externalized Amnezia server keys and PSK as shared key material
+- create `clients.json` if absent
+- in compatibility mode, first creation of `clients.json` imports peer public keys and allowed IPs from the shared Amnezia `awg0.conf`; imported peers without private keys are marked `exportable: false`
+- render local `awg0.conf`, `awg0.setconf`, `settings.json`, and `client.template.conf` from templates and structured state
+- publish an Amnezia-style compatibility view under `/opt/amnezia/awg`
+- start `amneziawg-go`, wait for the interface, apply `awg setconf`, assign the server address, set MTU, and add IPv4 NAT/forwarding rules when `AWG_NAT_ENABLED=true`
+
+Current state ownership model:
+- standalone Obscura mode:
+  - canonical local state lives under `${AWG_STATE_DIR:-/var/lib/obscura/awg}`
+  - canonical files are `awg0.conf`, `awg0.setconf`, `settings.json`, `clients.json`, `client.template.conf`, `wireguard_server_private_key.key`, `wireguard_server_public_key.key`, and `wireguard_psk.key`
+- Amnezia-compatible side-by-side mode:
+  - shared live files under `/srv/amnezia/awg` are the server private key, server public key, PSK, and source `awg0.conf`
+  - Obscura-local files under `${AWG_STATE_DIR:-/var/lib/obscura/awg}` remain the runtime config, settings, client registry, and export template
+  - this split is intentional so Obscura can reuse Amnezia-generated key material without treating one Amnezia runtime config as the long-term editable source for every Obscura instance
+
+Current host-side client-management model:
+- `scripts/manage-awg-clients.sh` supports `list`, `add`, `remove`, and `export`
+- `add` generates a private/public keypair inside the running AWG container, allocates the next address from the configured server subnet, rejects duplicate names/public keys/addresses, updates `clients.json`, restarts the container, and verifies live peer count
+- `remove` deletes a client by name or public key, updates `clients.json`, restarts the container, and verifies live peer count
+- `export` renders a concrete client config from the persisted client template, selected client entry, live server key material, and the published host port
+- imported Amnezia peers without private keys are listed but cannot be exported by Obscura
+
+Current import and migration model:
+- `scripts/externalize-amnezia-awg.sh` copies `/opt/amnezia/awg` out of a live Amnezia AWG container into `/srv/amnezia/awg` by default, recreates that Amnezia container with a bind mount, and preserves its image, restart policy, log config, ports, capabilities, environment, non-AWG bind mounts, and non-default networks
+- `scripts/import-amnezia-awg.sh` can import from a running Amnezia-style AWG container or from an already externalized host directory
+- the import helper stages and validates key files and `awg0.conf`, writes `clients.json`, and writes `import-metadata.json`
+- the import helper converts `[Peer]` blocks from `awg0.conf` into `clients.json` entries marked as non-exportable
+- with `--apply-live`, the import helper can copy the imported state into a running Obscura AWG container, restart it, and verify live peer count
+- `scripts/test-awg-host.sh` validates a running Obscura AWG service and exercises add/export/remove without printing private keys
+- `scripts/test-awg-migration.sh` builds a real upstream Amnezia AWG source image from the `amnezia-client` submodule, configures a throwaway Amnezia-style container, externalizes/imports state, applies it to a throwaway Obscura AWG target, and optionally runs tunnel packet-flow validation with `--with-tunnel`
+
+Current limitations:
+- the AWG service has been live-validated on Docker Desktop for build, startup, health, interface creation, peer add/remove, and client export rendering
+- the AWG migration helper path now has an E2E script, but full migration should be re-run on a Linux host before treating it as production-proven
+- IPv4 NAT is implemented inside the container; IPv6 egress behavior depends on the host/Docker IPv6 routing model and still needs live validation
+- compatibility mode imports Amnezia peers when `clients.json` is first created; it does not continuously merge later peer changes from the shared Amnezia `awg0.conf`
+- `AWG_NAT_ENABLED=true` mutates only the container network namespace firewall, not the host firewall
 
 ### Xray Module
 
@@ -525,12 +619,13 @@ The task is orchestration redesign, not only Dockerfile reuse.
 - only DNS is implemented as a default Compose service
 - the base `compose.yaml` is standalone and does not require `amnezia-dns-net`
 - side-by-side compatibility with vanilla Amnezia lives in `compose.amnezia.yaml`, which requires the external network `amnezia-dns-net` to exist
-- `compose.yaml` already reserves some future volumes, but they are not yet attached to working services
 - the `socks5proxy` module exists as an opt-in service and already supports both Obscura-managed and Amnezia-compatible config sources
+- the `awg` module exists as an early opt-in service and already supports Obscura-managed state plus externalized Amnezia key compatibility
+- the `xray` module exists as an early opt-in service and already supports Obscura-managed state plus externalized Amnezia shared-state compatibility
 - full automatic compatibility with Amnezia-driven SOCKS5 port changes is not possible in normal bridge mode because Compose port publishing is static
 - `SOCKS5_RESOLVE_MODE=prefer_ipv6` has been live-validated; the remaining modes are still worth validating explicitly
-- there is not yet a documented persistence model for full protocol state equivalent to upstream `/opt/amnezia/...`
-- there is not yet a compatibility layer for importing existing Amnezia-managed protocol data beyond current SOCKS5 compatibility support
+- there is not yet a documented persistence model for WireGuard, OpenVPN, IPsec, and other remaining protocol state equivalent to upstream `/opt/amnezia/...`
+- there is not yet a compatibility layer for importing existing Amnezia-managed protocol data beyond current SOCKS5, AWG, and Xray compatibility support
 - the blacklist module must treat Docker presence as mandatory, but it must not assume that either `iptables` or `nft` tooling is installed
 - the blacklist module supports an explicit `BLACKLIST_RESOLVER` override and cached ASN expansion through RIPE Stat
 - the blacklist module currently requires root privileges for `apply`, `verify`, and `flush`
@@ -548,16 +643,19 @@ When extending the project toward the final goal, prefer this order:
 
 Suggested early protocol candidates:
 - WireGuard
-- AWG
-- Xray
+- OpenVPN
+- IPsec
 
 They already have strong upstream script coverage and align with the repo's reserved volumes and stated goals.
 
 Near-term service work includes:
 - continue validating the `socks5proxy` module against live Amnezia-managed setups
+- live-validate the new `awg` profile on a Linux Docker host with `/dev/net/tun`
+- run `scripts/test-awg-migration.sh --with-tunnel` on a real Linux Docker host and record the result
+- harden AWG IPv6 egress behavior after live validation
+- decide whether AWG compatibility mode should add an explicit resync command for later Amnezia peer changes
 - decide whether the preferred path for tighter SOCKS5 compatibility should be bridge mode with explicit recreate on port changes or Linux host networking
-- document a recommended host bind-mount layout for service state under `/srv/amnezia/...`
-- implement the tracked Compose-native `xray` module plan recorded in this file
+- continue documenting recommended host bind-mount layouts for service state under `/srv/amnezia/...`
 - keep blacklist enforcement host-side rather than forcing it into a privileged Compose service
 - continue hardening blacklist refresh, restore, and degraded-state reporting semantics
 

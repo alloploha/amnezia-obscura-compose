@@ -4,7 +4,7 @@ Obscura is a Docker Compose based, Amnezia-compatible server-side deployment lay
 
 Russian version: [README.ru.md](README.ru.md)
 
-Current project version: `0.18.0`
+Current project version: `0.19.0`
 
 Obscura is not a fork of the Amnezia app.
 It is a separate project that aims to make the server side easier to run and manage directly with Docker Compose.
@@ -24,6 +24,7 @@ In the future, that should include protocol services such as WireGuard, AWG, Xra
 Today Obscura provides:
 - a private DNS resolver based on Unbound
 - an optional SOCKS5 proxy module based on 3proxy
+- an early optional AWG profile with userspace AmneziaWG, persistent server state, client export tooling, and side-by-side Amnezia key compatibility
 - an early optional Xray profile with persistent server state, client management, migration tooling, and side-by-side Amnezia compatibility
 - an optional host-side blacklist tool for blocking unwanted container egress
 
@@ -99,6 +100,18 @@ This currently gives you a Compose-managed Xray service with generated persisten
 When used with the Amnezia overlay and an externalized `/srv/amnezia/xray`, it can reuse Amnezia-managed Xray clients and key material while keeping Obscura-specific instance settings separate.
 For that side-by-side mode, the host also needs the `amnezia-dns-net` Docker network that vanilla Amnezia normally creates.
 If you publish Xray on a different host port, the helper scripts export client configs with that published port automatically.
+
+Enable the early AWG profile:
+
+```bash
+docker compose --profile awg up -d --build
+```
+
+This uses `amneziawg-go` inside the container, so it requires `/dev/net/tun` and `NET_ADMIN` but does not require the Amnezia kernel module, `--privileged`, `SYS_MODULE`, or host `/lib/modules`.
+The service stores state in `awg-data` by default and exposes an Amnezia-style view under `/opt/amnezia/awg`.
+With the Amnezia overlay and an externalized `/srv/amnezia/awg`, it can reuse Amnezia-generated server keys and imported peer public keys while keeping Obscura's runtime config local.
+Imported clients without private keys are tracked as non-exportable.
+The AWG helper scripts support client add/list/remove/export, externalizing a live Amnezia AWG container, importing Amnezia AWG state, and running host or migration validation.
 
 Use the Amnezia compatibility overlay:
 

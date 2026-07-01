@@ -10,6 +10,14 @@ services:
     volumes:
       - /srv/amnezia/socks5proxy/conf:/compat:ro
 
+  awg:
+    environment:
+      AWG_COMPAT_STATE_DIR: /compat/awg
+    networks:
+      - amnezia-dns
+    volumes:
+      - /srv/amnezia/awg:/compat/awg
+
   xray:
     environment:
       XRAY_COMPAT_STATE_DIR: /compat/xray

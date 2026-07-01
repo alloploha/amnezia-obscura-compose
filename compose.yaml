@@ -69,6 +69,63 @@ services:
     volumes:
       - socks5proxy-data:${SOCKS5_STATE_DIR:-/var/lib/obscura/socks5proxy}
 
+  awg:
+    profiles: ["awg"]
+    build: ./awg
+    restart: unless-stopped
+    depends_on:
+      - dns
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 5
+    healthcheck:
+      test: ["CMD", "/opt/obscura/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      AWG_COMPAT_STATE_DIR: ${AWG_COMPAT_STATE_DIR:-}
+      AWG_INTERFACE: ${AWG_INTERFACE:-awg0}
+      AWG_LISTEN_PORT: ${AWG_LISTEN_PORT:-55424}
+      AWG_PUBLISHED_PORT: ${AWG_PUBLISHED_PORT:-55424}
+      AWG_SUBNET_ADDRESS: ${AWG_SUBNET_ADDRESS:-10.8.1.0}
+      AWG_SUBNET_CIDR: ${AWG_SUBNET_CIDR:-24}
+      AWG_SERVER_ADDRESS: ${AWG_SERVER_ADDRESS:-}
+      AWG_PRIMARY_DNS: ${AWG_PRIMARY_DNS:-172.30.153.53}
+      AWG_SECONDARY_DNS: ${AWG_SECONDARY_DNS:-fd30:153::53}
+      AWG_MTU: ${AWG_MTU:-1376}
+      AWG_NAT_ENABLED: ${AWG_NAT_ENABLED:-true}
+      AWG_STATE_DIR: ${AWG_STATE_DIR:-/var/lib/obscura/awg}
+      AWG_JUNK_PACKET_COUNT: ${AWG_JUNK_PACKET_COUNT:-3}
+      AWG_JUNK_PACKET_MIN_SIZE: ${AWG_JUNK_PACKET_MIN_SIZE:-10}
+      AWG_JUNK_PACKET_MAX_SIZE: ${AWG_JUNK_PACKET_MAX_SIZE:-30}
+      AWG_INIT_PACKET_JUNK_SIZE: ${AWG_INIT_PACKET_JUNK_SIZE:-15}
+      AWG_RESPONSE_PACKET_JUNK_SIZE: ${AWG_RESPONSE_PACKET_JUNK_SIZE:-18}
+      AWG_COOKIE_REPLY_PACKET_JUNK_SIZE: ${AWG_COOKIE_REPLY_PACKET_JUNK_SIZE:-20}
+      AWG_TRANSPORT_PACKET_JUNK_SIZE: ${AWG_TRANSPORT_PACKET_JUNK_SIZE:-23}
+      AWG_INIT_PACKET_MAGIC_HEADER: ${AWG_INIT_PACKET_MAGIC_HEADER:-1020325451}
+      AWG_RESPONSE_PACKET_MAGIC_HEADER: ${AWG_RESPONSE_PACKET_MAGIC_HEADER:-3288052141}
+      AWG_UNDERLOAD_PACKET_MAGIC_HEADER: ${AWG_UNDERLOAD_PACKET_MAGIC_HEADER:-1766607858}
+      AWG_TRANSPORT_PACKET_MAGIC_HEADER: ${AWG_TRANSPORT_PACKET_MAGIC_HEADER:-2528465083}
+      AWG_SPECIAL_JUNK_1: ${AWG_SPECIAL_JUNK_1:-<r 2><b 0x858000010001000000000669636c6f756403636f6d0000010001c00c000100010000105a00044d583737>}
+      AWG_SPECIAL_JUNK_2: ${AWG_SPECIAL_JUNK_2:-}
+      AWG_SPECIAL_JUNK_3: ${AWG_SPECIAL_JUNK_3:-}
+      AWG_SPECIAL_JUNK_4: ${AWG_SPECIAL_JUNK_4:-}
+      AWG_SPECIAL_JUNK_5: ${AWG_SPECIAL_JUNK_5:-}
+    ports:
+      - "${AWG_PUBLISHED_PORT:-55424}:${AWG_LISTEN_PORT:-55424}/udp"
+    networks:
+      - dns
+    volumes:
+      - awg-data:${AWG_STATE_DIR:-/var/lib/obscura/awg}
+
   xray:
     profiles: ["xray"]
     build: ./xray
