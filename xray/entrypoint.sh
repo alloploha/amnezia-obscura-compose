@@ -199,7 +199,7 @@ render_server_config() {
             print "                \"clients\": ["
 
             while ((getline client_line < clients_file) > 0) {
-                if (client_line == "[" || client_line == "]") {
+                if (client_line ~ /^[[:space:]]*\[[[:space:]]*$/ || client_line ~ /^[[:space:]]*\][[:space:]]*$/) {
                     continue
                 }
 

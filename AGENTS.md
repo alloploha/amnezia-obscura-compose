@@ -20,7 +20,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.19.1`
+Current project version: `0.20.0`
 
 Version file:
 - the repository root contains `VERSION`
@@ -589,6 +589,7 @@ Important scripts:
 - `scripts/enable-docker-ipv6.sh`
 - `scripts/compose-amnezia.sh`
 - `scripts/test-all.sh`
+- `scripts/check-host.sh`
 - `scripts/externalize-amnezia-socks5proxy.sh`
 - `scripts/test-socks5proxy-host.sh`
 - blacklist install, refresh, and uninstall wrappers
@@ -600,6 +601,12 @@ Validation entrypoint:
 - `--e2e` runs host-side checks for already-running optional services and skips absent services clearly
 - `--awg-migration` runs the throwaway-container AWG migration E2E test
 - `--awg-tunnel` runs the AWG migration E2E test with real tunnel packet flow where `/dev/net/tun` is available
+- `--xray-migration` runs the throwaway-container Xray migration E2E test
+- `--xray-flow` runs the Xray migration E2E test with temporary client HTTP flow
+- `--socks5-compat` runs the Amnezia-compatible SOCKS5 externalize/import behavior test
+- `--dns-smoke` runs a disposable DNS resolver smoke test
+- `--blacklist-fixtures` runs non-mutating blacklist fixture tests without touching the host firewall
+- `--host-preflight` runs host readiness checks through `scripts/check-host.sh`
 
 The preferred pattern is:
 - Python core or declarative Compose logic for real behavior

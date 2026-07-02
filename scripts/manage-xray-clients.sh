@@ -7,6 +7,7 @@ DEFAULT_CONTAINER_NUMBER_LABEL="com.docker.compose.container-number=1"
 DEFAULT_LOCAL_SOCKS_PORT="10808"
 DEFAULT_CLIENT_FLOW="xtls-rprx-vision"
 DEFAULT_RESTART_TIMEOUT="${XRAY_CLIENTS_RESTART_TIMEOUT:-30}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 COMMAND=""
 CONTAINER_NAME=""
@@ -255,6 +256,9 @@ discover_server_port() {
 
     PUBLISHED_PORT="$(printf '%s\n' "$port_lines" | sed -n 's/.*:\([0-9][0-9]*\)$/\1/p' | head -n 1)"
     if ! validate_numeric_port "$PUBLISHED_PORT"; then
+        PUBLISHED_PORT="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER_NAME" | sed -n 's/^XRAY_PUBLISHED_PORT=//p' | head -n 1)"
+    fi
+    if ! validate_numeric_port "$PUBLISHED_PORT"; then
         printf 'ERROR: could not determine published Xray port for %s\n' "$CONTAINER_NAME" >&2
         exit 1
     fi
@@ -293,7 +297,7 @@ fetch_clients_registry() {
     if [ "$REGISTRY_MODE" = "compat" ]; then
         docker exec "$CONTAINER_NAME" sh -lc "cat '$REGISTRY_SERVER_JSON_PATH'" >"$TMPDIR/server.json"
 
-        python3 - "$TMPDIR/server.json" "$TMPDIR/clients.json" <<'EOF'
+        "$PYTHON_BIN" - "$TMPDIR/server.json" "$TMPDIR/clients.json" <<'EOF'
 import json
 import sys
 
@@ -325,7 +329,7 @@ write_clients_registry() {
         prepare_tmpdir
         docker exec "$CONTAINER_NAME" sh -lc "cat '$REGISTRY_SERVER_JSON_PATH'" >"$TMPDIR/server.json"
 
-        python3 - "$TMPDIR/server.json" "$source_path" <<'EOF'
+        "$PYTHON_BIN" - "$TMPDIR/server.json" "$source_path" <<'EOF'
 import json
 import sys
 
@@ -382,7 +386,7 @@ restart_xray() {
 list_clients() {
     fetch_clients_registry
 
-    python3 - "$TMPDIR/clients.json" "$BOOTSTRAP_ID" "$INCLUDE_BOOTSTRAP" <<'EOF'
+    "$PYTHON_BIN" - "$TMPDIR/clients.json" "$BOOTSTRAP_ID" "$INCLUDE_BOOTSTRAP" <<'EOF'
 import json
 import sys
 
@@ -412,7 +416,7 @@ add_client() {
     fetch_clients_registry
 
     if [ -z "$CLIENT_ID" ]; then
-        CLIENT_ID="$(python3 - <<'EOF'
+        CLIENT_ID="$("$PYTHON_BIN" - <<'EOF'
 import uuid
 print(uuid.uuid4())
 EOF
@@ -424,7 +428,7 @@ EOF
     if [ -n "$CLIENT_FLOW" ]; then
         effective_flow="$CLIENT_FLOW"
     else
-        effective_flow="$(python3 - "$TMPDIR/clients.json" "$BOOTSTRAP_ID" "$DEFAULT_CLIENT_FLOW" <<'EOF'
+        effective_flow="$("$PYTHON_BIN" - "$TMPDIR/clients.json" "$BOOTSTRAP_ID" "$DEFAULT_CLIENT_FLOW" <<'EOF'
 import json
 import sys
 
@@ -443,7 +447,7 @@ EOF
 )"
     fi
 
-    python3 - "$TMPDIR/clients.json" "$CLIENT_ID" "$effective_flow" <<'EOF'
+    "$PYTHON_BIN" - "$TMPDIR/clients.json" "$CLIENT_ID" "$effective_flow" <<'EOF'
 import json
 import sys
 
@@ -484,7 +488,7 @@ remove_client() {
     fetch_clients_registry
     resolve_client_ref
 
-    python3 - "$TMPDIR/clients.json" "$CLIENT_ID" "$BOOTSTRAP_ID" "$ALLOW_BOOTSTRAP_REMOVAL" <<'EOF'
+    "$PYTHON_BIN" - "$TMPDIR/clients.json" "$CLIENT_ID" "$BOOTSTRAP_ID" "$ALLOW_BOOTSTRAP_REMOVAL" <<'EOF'
 import json
 import sys
 
@@ -536,7 +540,7 @@ export_client() {
 
     docker exec "$CONTAINER_NAME" sh -lc "cat '$CLIENT_TEMPLATE_PATH'" >"$TMPDIR/client.template.json"
 
-    selected_flow="$(python3 - "$TMPDIR/clients.json" "$CLIENT_ID" <<'EOF'
+    selected_flow="$("$PYTHON_BIN" - "$TMPDIR/clients.json" "$CLIENT_ID" <<'EOF'
 import json
 import sys
 
@@ -554,7 +558,7 @@ else:
 EOF
 )"
 
-    python3 - \
+    "$PYTHON_BIN" - \
         "$TMPDIR/client.template.json" \
         "$CLIENT_ID" \
         "$selected_flow" \
@@ -622,7 +626,7 @@ main() {
     parse_args "$@"
 
     require_cmd docker
-    require_cmd python3
+    require_cmd "$PYTHON_BIN"
 
     discover_container
     require_running_server

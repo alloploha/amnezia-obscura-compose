@@ -9,7 +9,8 @@ COPY healthcheck.sh /opt/obscura/healthcheck.sh
 COPY awg0.template.conf /opt/obscura/awg0.template.conf
 COPY client.template.conf /opt/obscura/client.template.conf
 
-RUN chmod 0755 /opt/obscura/entrypoint.sh /opt/obscura/healthcheck.sh
+RUN sed -i 's/\r$//' /opt/obscura/entrypoint.sh /opt/obscura/healthcheck.sh \
+    && chmod 0755 /opt/obscura/entrypoint.sh /opt/obscura/healthcheck.sh
 
 ENTRYPOINT ["/opt/obscura/entrypoint.sh"]
 CMD ["tail", "-f", "/dev/null"]

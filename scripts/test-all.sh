@@ -5,6 +5,12 @@ RUN_DOCKER=0
 RUN_E2E=0
 RUN_AWG_MIGRATION=0
 RUN_AWG_TUNNEL=0
+RUN_XRAY_MIGRATION=0
+RUN_XRAY_FLOW=0
+RUN_SOCKS5_COMPAT=0
+RUN_DNS_SMOKE=0
+RUN_BLACKLIST_FIXTURES=0
+RUN_HOST_PREFLIGHT=0
 KEEP_GOING=0
 TIMEOUT_SECONDS="${OBSCURA_TEST_TIMEOUT:-}"
 
@@ -29,6 +35,13 @@ Options:
   --e2e             Run host-side service tests for already-running services
   --awg-migration   Run the AWG migration E2E test
   --awg-tunnel      Run the AWG migration E2E test with real tunnel traffic
+  --xray-migration  Run the Xray migration E2E test
+  --xray-flow       Run the Xray migration E2E test with client HTTP flow
+  --socks5-compat   Run the SOCKS5 Amnezia compatibility E2E test
+  --dns-smoke       Run the disposable DNS smoke test
+  --blacklist-fixtures
+                    Run non-mutating blacklist fixture tests
+  --host-preflight  Run host readiness preflight
   --keep-going      Continue after failures and report every failed step
   -h, --help        Show this help
 
@@ -77,6 +90,31 @@ parse_args() {
             --awg-tunnel)
                 RUN_AWG_TUNNEL=1
                 RUN_AWG_MIGRATION=1
+                shift
+                ;;
+            --xray-migration)
+                RUN_XRAY_MIGRATION=1
+                shift
+                ;;
+            --xray-flow)
+                RUN_XRAY_FLOW=1
+                RUN_XRAY_MIGRATION=1
+                shift
+                ;;
+            --socks5-compat)
+                RUN_SOCKS5_COMPAT=1
+                shift
+                ;;
+            --dns-smoke)
+                RUN_DNS_SMOKE=1
+                shift
+                ;;
+            --blacklist-fixtures)
+                RUN_BLACKLIST_FIXTURES=1
+                shift
+                ;;
+            --host-preflight)
+                RUN_HOST_PREFLIGHT=1
                 shift
                 ;;
             --keep-going)
@@ -203,6 +241,12 @@ mode_label() {
     [ "$RUN_E2E" -eq 1 ] && label="$label +e2e"
     [ "$RUN_AWG_MIGRATION" -eq 1 ] && label="$label +awg-migration"
     [ "$RUN_AWG_TUNNEL" -eq 1 ] && label="$label +awg-tunnel"
+    [ "$RUN_XRAY_MIGRATION" -eq 1 ] && label="$label +xray-migration"
+    [ "$RUN_XRAY_FLOW" -eq 1 ] && label="$label +xray-flow"
+    [ "$RUN_SOCKS5_COMPAT" -eq 1 ] && label="$label +socks5-compat"
+    [ "$RUN_DNS_SMOKE" -eq 1 ] && label="$label +dns-smoke"
+    [ "$RUN_BLACKLIST_FIXTURES" -eq 1 ] && label="$label +blacklist-fixtures"
+    [ "$RUN_HOST_PREFLIGHT" -eq 1 ] && label="$label +host-preflight"
 
     printf '%s\n' "$label"
 }
@@ -224,6 +268,7 @@ bash_syntax_checks() {
         run_step "Bash syntax: $script" bash -n "$script"
     done <<'EOF'
 scripts/compose-amnezia.sh
+scripts/check-host.sh
 scripts/enable-docker-ipv6.sh
 scripts/externalize-amnezia-awg.sh
 scripts/externalize-amnezia-socks5proxy.sh
@@ -238,8 +283,12 @@ scripts/refresh-blacklist.sh
 scripts/test-all.sh
 scripts/test-awg-host.sh
 scripts/test-awg-migration.sh
+scripts/test-blacklist-fixtures.sh
+scripts/test-dns-smoke.sh
 scripts/test-socks5proxy-host.sh
+scripts/test-socks5proxy-compat.sh
 scripts/test-xray-host.sh
+scripts/test-xray-migration.sh
 scripts/uninstall-blacklist.sh
 scripts/upgrade-xray-engine.sh
 awg/entrypoint.sh
@@ -367,6 +416,48 @@ awg_migration_tests() {
     fi
 }
 
+xray_migration_tests() {
+    if ! docker_daemon_available; then
+        fail "Docker daemon availability for Xray migration checks"
+        finish_after_failure_if_needed
+        return
+    fi
+
+    if [ "$RUN_XRAY_FLOW" -eq 1 ]; then
+        run_step "Xray migration E2E with client flow" bash scripts/test-xray-migration.sh --with-flow
+    else
+        run_step "Xray migration E2E" bash scripts/test-xray-migration.sh
+    fi
+}
+
+socks5_compat_tests() {
+    if ! docker_daemon_available; then
+        fail "Docker daemon availability for SOCKS5 compatibility checks"
+        finish_after_failure_if_needed
+        return
+    fi
+
+    run_step "SOCKS5 compatibility E2E" bash scripts/test-socks5proxy-compat.sh
+}
+
+dns_smoke_tests() {
+    if ! docker_daemon_available; then
+        fail "Docker daemon availability for DNS smoke checks"
+        finish_after_failure_if_needed
+        return
+    fi
+
+    run_step "DNS smoke test" bash scripts/test-dns-smoke.sh
+}
+
+blacklist_fixture_tests() {
+    run_step "Blacklist fixture tests" bash scripts/test-blacklist-fixtures.sh
+}
+
+host_preflight_test() {
+    run_step "Host preflight" bash scripts/check-host.sh
+}
+
 main() {
     parse_args "$@"
     validate_timeout
@@ -387,6 +478,26 @@ main() {
 
     if [ "$RUN_AWG_MIGRATION" -eq 1 ]; then
         awg_migration_tests
+    fi
+
+    if [ "$RUN_XRAY_MIGRATION" -eq 1 ]; then
+        xray_migration_tests
+    fi
+
+    if [ "$RUN_SOCKS5_COMPAT" -eq 1 ]; then
+        socks5_compat_tests
+    fi
+
+    if [ "$RUN_DNS_SMOKE" -eq 1 ]; then
+        dns_smoke_tests
+    fi
+
+    if [ "$RUN_BLACKLIST_FIXTURES" -eq 1 ]; then
+        blacklist_fixture_tests
+    fi
+
+    if [ "$RUN_HOST_PREFLIGHT" -eq 1 ]; then
+        host_preflight_test
     fi
 
     print_summary

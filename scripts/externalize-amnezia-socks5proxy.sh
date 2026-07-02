@@ -8,6 +8,7 @@ CONTAINER_NAME="$DEFAULT_CONTAINER_NAME"
 DATA_DIR="$DEFAULT_DATA_DIR"
 FORCE=0
 VERBOSE=0
+ALLOW_NON_ROOT="${OBSCURA_ALLOW_NON_ROOT:-0}"
 
 BACKUP_NAME=""
 RENAMED_OLD=0
@@ -58,7 +59,7 @@ EOF
 }
 
 require_root() {
-  if [[ "${EUID}" -ne 0 ]]; then
+  if [[ "${EUID}" -ne 0 && "$ALLOW_NON_ROOT" != "1" ]]; then
     err "This script must be run as root."
     err "Run: sudo bash $0"
     exit 1
@@ -147,6 +148,11 @@ copy_container_data() {
   log "Copying /usr/local/3proxy/conf from $CONTAINER_NAME to $conf_dir"
   docker cp "$CONTAINER_NAME":/usr/local/3proxy/conf/. "$conf_dir"/
 
+  if [[ ! -s "$conf_dir/3proxy.cfg" ]]; then
+    err "Required SOCKS5 config file was not copied or is empty: $conf_dir/3proxy.cfg"
+    exit 1
+  fi
+
   log "Copying /usr/local/3proxy/logs from $CONTAINER_NAME to $logs_dir"
   docker cp "$CONTAINER_NAME":/usr/local/3proxy/logs/. "$logs_dir"/
 }
@@ -155,11 +161,15 @@ set_permissions() {
   local conf_dir="$DATA_DIR/conf"
   local logs_dir="$DATA_DIR/logs"
 
-  chown -R root:root "$conf_dir"
+  if [[ "${EUID}" -eq 0 ]]; then
+    chown -R root:root "$conf_dir"
+  fi
   find "$conf_dir" -type d -exec chmod 700 {} \;
   find "$conf_dir" -type f -exec chmod 600 {} \;
 
-  chown -R 65535:65535 "$logs_dir"
+  if [[ "${EUID}" -eq 0 ]]; then
+    chown -R 65535:65535 "$logs_dir"
+  fi
   find "$logs_dir" -type d -exec chmod 750 {} \;
   find "$logs_dir" -type f -exec chmod 640 {} \;
 }

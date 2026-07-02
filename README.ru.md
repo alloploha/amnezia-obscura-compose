@@ -4,7 +4,7 @@ Obscura — это совместимый с Amnezia серверный слой
 
 Английская версия: [README.md](README.md)
 
-Текущая версия проекта: `0.19.1`
+Текущая версия проекта: `0.20.0`
 
 Obscura не является форком приложения Amnezia.
 Это отдельный проект, цель которого — сделать серверную часть проще для запуска и управления напрямую через Docker Compose.
@@ -100,6 +100,21 @@ bash scripts/test-all.sh --docker
 
 ```bash
 bash scripts/test-all.sh --docker --awg-tunnel
+```
+
+Запустить дополнительные compatibility- и smoke-проверки:
+
+```bash
+bash scripts/test-all.sh --xray-migration
+bash scripts/test-all.sh --socks5-compat
+bash scripts/test-all.sh --dns-smoke
+bash scripts/test-all.sh --blacklist-fixtures
+```
+
+Проверить готовность хоста для Obscura:
+
+```bash
+bash scripts/check-host.sh
 ```
 
 ## Дополнительные Возможности

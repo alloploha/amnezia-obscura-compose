@@ -10,6 +10,7 @@ DATA_DIR="$DEFAULT_DATA_DIR"
 CONTAINER_PATH="$DEFAULT_CONTAINER_PATH"
 FORCE=0
 VERBOSE=0
+ALLOW_NON_ROOT="${OBSCURA_ALLOW_NON_ROOT:-0}"
 
 BACKUP_NAME=""
 RENAMED_OLD=0
@@ -74,7 +75,7 @@ EOF
 }
 
 require_root() {
-    if [[ "${EUID}" -ne 0 ]]; then
+    if [[ "${EUID}" -ne 0 && "$ALLOW_NON_ROOT" != "1" ]]; then
         err "This script must be run as root."
         err "Run: sudo bash $0"
         exit 1
@@ -156,10 +157,19 @@ ensure_target_dir_ready() {
 copy_container_data() {
     log "Copying $CONTAINER_PATH from $CONTAINER_NAME to $DATA_DIR"
     docker cp "$CONTAINER_NAME":"$CONTAINER_PATH"/. "$DATA_DIR"/
+
+    for required in server.json xray_uuid.key xray_short_id.key xray_public.key xray_private.key; do
+        if [[ ! -s "$DATA_DIR/$required" ]]; then
+            err "Required Xray state file was not copied or is empty: $required"
+            exit 1
+        fi
+    done
 }
 
 set_permissions() {
-    chown -R root:root "$DATA_DIR"
+    if [[ "${EUID}" -eq 0 ]]; then
+        chown -R root:root "$DATA_DIR"
+    fi
     find "$DATA_DIR" -type d -exec chmod 700 {} \;
     find "$DATA_DIR" -type f -exec chmod 600 {} \;
 
@@ -239,6 +249,7 @@ build_docker_run_args() {
 
     for env_var in "${ENV_VARS[@]}"; do
         [[ -n "$env_var" ]] || continue
+        [[ "$env_var" != PATH=* ]] || continue
         DOCKER_RUN_ARGS+=(-e "$env_var")
     done
 

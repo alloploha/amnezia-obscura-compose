@@ -10,6 +10,7 @@ DEFAULT_CONTAINER_NUMBER_LABEL="com.docker.compose.container-number=1"
 DEFAULT_TARGET_STATE_DIR="/var/lib/obscura/xray"
 DEFAULT_CLIENT_FLOW="xtls-rprx-vision"
 DEFAULT_RESTART_TIMEOUT="${XRAY_IMPORT_RESTART_TIMEOUT:-30}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 SOURCE_CONTAINER="$DEFAULT_SOURCE_CONTAINER"
 SOURCE_CONTAINER_PATH="$DEFAULT_SOURCE_CONTAINER_PATH"
@@ -234,7 +235,7 @@ copy_source_state() {
 }
 
 normalize_imported_state() {
-    python3 - \
+    "$PYTHON_BIN" - \
         "$STAGE_DIR/server.json" \
         "$STAGE_DIR/xray_uuid.key" \
         "$STAGE_DIR/clients.json" \
@@ -304,7 +305,7 @@ render_imported_client_template() {
     local bootstrap_flow
 
     bootstrap_flow="$(
-        python3 - "$STAGE_DIR/clients.json" "$STAGE_DIR/xray_uuid.key" "$DEFAULT_CLIENT_FLOW" <<'EOF'
+        "$PYTHON_BIN" - "$STAGE_DIR/clients.json" "$STAGE_DIR/xray_uuid.key" "$DEFAULT_CLIENT_FLOW" <<'EOF'
 import json
 import sys
 
@@ -401,8 +402,8 @@ validate_live_target_settings() {
     local target_port
     local target_site
 
-    imported_port="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("source_server_port",""))' "$IMPORT_METADATA_JSON")"
-    imported_site="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("source_site_name",""))' "$IMPORT_METADATA_JSON")"
+    imported_port="$("$PYTHON_BIN" -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("source_server_port",""))' "$IMPORT_METADATA_JSON")"
+    imported_site="$("$PYTHON_BIN" -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("source_site_name",""))' "$IMPORT_METADATA_JSON")"
 
     target_listen_port="$(read_target_env_value XRAY_LISTEN_PORT)"
     target_port="$(read_target_env_value XRAY_PUBLISHED_PORT)"
@@ -491,7 +492,7 @@ print_summary() {
     log "  source: $source_desc"
     log "  output dir: $STATE_DIR"
 
-    python3 - "$IMPORT_METADATA_JSON" <<'EOF'
+    "$PYTHON_BIN" - "$IMPORT_METADATA_JSON" <<'EOF'
 import json
 import sys
 
@@ -513,7 +514,7 @@ main() {
     parse_args "$@"
 
     require_cmd docker
-    require_cmd python3
+    require_cmd "$PYTHON_BIN"
 
     prepare_tmpdir
     validate_source_selection

@@ -22,7 +22,8 @@ COPY healthcheck.sh /opt/obscura/healthcheck.sh
 COPY server.template.json /opt/obscura/server.template.json
 COPY client.template.json /opt/obscura/client.template.json
 
-RUN chmod 0755 /opt/obscura/entrypoint.sh /opt/obscura/healthcheck.sh
+RUN sed -i 's/\r$//' /opt/obscura/entrypoint.sh /opt/obscura/healthcheck.sh \
+    && chmod 0755 /opt/obscura/entrypoint.sh /opt/obscura/healthcheck.sh
 
 ENTRYPOINT ["/opt/obscura/entrypoint.sh"]
 CMD ["xray", "run", "-config", "/opt/amnezia/xray/server.json"]
