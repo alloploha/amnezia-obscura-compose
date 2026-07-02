@@ -4,7 +4,7 @@ Obscura is a Docker Compose based, Amnezia-compatible server-side deployment lay
 
 Russian version: [README.ru.md](README.ru.md)
 
-Current project version: `0.20.0`
+Current project version: `0.21.0`
 
 Obscura is not a fork of the Amnezia app.
 It is a separate project that aims to make the server side easier to run and manage directly with Docker Compose.
@@ -109,6 +109,7 @@ bash scripts/test-all.sh --xray-migration
 bash scripts/test-all.sh --socks5-compat
 bash scripts/test-all.sh --dns-smoke
 bash scripts/test-all.sh --blacklist-fixtures
+bash scripts/test-all.sh --migration-workflow
 ```
 
 Check whether a host is ready for Obscura:
@@ -116,6 +117,22 @@ Check whether a host is ready for Obscura:
 ```bash
 bash scripts/check-host.sh
 ```
+
+## Safe Amnezia Migration Workflow
+
+For AWG, Xray, and SOCKS5, use the top-level wrapper to inspect, snapshot, migrate, verify, or roll back existing Amnezia state:
+
+```bash
+sudo bash scripts/obscura.sh migrate audit --service all
+sudo bash scripts/obscura.sh migrate snapshot --service xray
+sudo bash scripts/obscura.sh migrate migrate --service xray --target-container obscura-xray-1
+sudo bash scripts/obscura.sh migrate verify --service xray
+sudo bash scripts/obscura.sh migrate rollback --service xray --snapshot /srv/obscura/backups/amnezia-migration/<timestamp>
+```
+
+The wrapper creates timestamped snapshots under `/srv/obscura/backups/amnezia-migration` by default and does not print key material.
+Mutating actions ask for confirmation unless `--yes` is passed.
+Use `--dry-run` before running a live migration.
 
 ## Optional Features
 

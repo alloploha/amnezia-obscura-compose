@@ -20,7 +20,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.20.0`
+Current project version: `0.21.0`
 
 Version file:
 - the repository root contains `VERSION`
@@ -85,6 +85,7 @@ Current implementation status:
 - implemented as an early opt-in profile: Compose-native AWG module using userspace `amneziawg-go`, persistent state, client export tooling, import helpers, and side-by-side shared-key compatibility
 - implemented as an early opt-in profile: Compose-native Xray module with persistent state generation, client-management helpers, migration tooling, and side-by-side shared-state compatibility
 - implemented as a host-side module: blacklist inspection, backend auto-detection, apply, refresh, verify, flush, and systemd install/remove flows for Docker egress filtering
+- implemented as an operator workflow: top-level Amnezia migration audit, snapshot, migrate, verify, and rollback wrapper for Xray, AWG, and SOCKS5
 - partially prepared: helper scripts, compatibility overlays, and reserved volumes for future protocol services
 - not yet implemented as Compose services: WireGuard, OpenVPN, IPsec, and other VPN containers
 
@@ -590,6 +591,7 @@ Important scripts:
 - `scripts/compose-amnezia.sh`
 - `scripts/test-all.sh`
 - `scripts/check-host.sh`
+- `scripts/obscura.sh`
 - `scripts/externalize-amnezia-socks5proxy.sh`
 - `scripts/test-socks5proxy-host.sh`
 - blacklist install, refresh, and uninstall wrappers
@@ -607,6 +609,29 @@ Validation entrypoint:
 - `--dns-smoke` runs a disposable DNS resolver smoke test
 - `--blacklist-fixtures` runs non-mutating blacklist fixture tests without touching the host firewall
 - `--host-preflight` runs host readiness checks through `scripts/check-host.sh`
+- `--migration-workflow` runs non-mutating tests for the top-level migration wrapper
+- `--migration-rollback` currently aliases the migration workflow fixture coverage and keeps rollback validation non-destructive
+
+Migration workflow:
+- `scripts/obscura.sh migrate audit --service xray|awg|socks5proxy|all`
+- `scripts/obscura.sh migrate snapshot --service xray|awg|socks5proxy|all`
+- `scripts/obscura.sh migrate migrate --service xray|awg|socks5proxy`
+- `scripts/obscura.sh migrate verify --service xray|awg|socks5proxy`
+- `scripts/obscura.sh migrate rollback --service xray|awg|socks5proxy --snapshot <path>`
+
+Current migration workflow behavior:
+- active v1 services are Xray, AWG, and SOCKS5 only
+- mutating migrate and rollback actions operate on one service at a time
+- snapshots default to `/srv/obscura/backups/amnezia-migration/<timestamp>`
+- snapshots include service-scoped container inspect JSON when containers exist, source state tarballs, target state tarballs when target containers exist, checksum files, and per-service restore helpers
+- externalized Amnezia state defaults remain `/srv/amnezia/xray`, `/srv/amnezia/awg`, and `/srv/amnezia/socks5proxy`
+- `--dry-run` prints planned actions without mutating state
+- mutating actions require root unless `OBSCURA_ALLOW_NON_ROOT=1` is set for disposable tests
+- mutating actions ask for confirmation unless `--yes` is passed
+- logs must remain secret-safe; do not print private keys, PSKs, full rendered VPN configs, or SOCKS5 passwords
+- rollback restores captured source and target state tarballs where available and prefers preserved `amnezia-*-old-*` source containers created by externalize scripts
+- rollback is best-effort for Docker container recreation; if no preserved backup container exists, the workflow reports the manual recreation requirement instead of replaying incomplete Docker metadata
+- SOCKS5 migration intentionally externalizes and verifies compatibility state but does not auto-start an Obscura SOCKS5 service because bridge-mode host port conflicts require an operator choice
 
 The preferred pattern is:
 - Python core or declarative Compose logic for real behavior

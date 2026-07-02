@@ -11,6 +11,8 @@ RUN_SOCKS5_COMPAT=0
 RUN_DNS_SMOKE=0
 RUN_BLACKLIST_FIXTURES=0
 RUN_HOST_PREFLIGHT=0
+RUN_MIGRATION_WORKFLOW=0
+RUN_MIGRATION_ROLLBACK=0
 KEEP_GOING=0
 TIMEOUT_SECONDS="${OBSCURA_TEST_TIMEOUT:-}"
 
@@ -42,6 +44,10 @@ Options:
   --blacklist-fixtures
                     Run non-mutating blacklist fixture tests
   --host-preflight  Run host readiness preflight
+  --migration-workflow
+                    Run non-mutating unified migration workflow tests
+  --migration-rollback
+                    Run migration rollback fixture tests
   --keep-going      Continue after failures and report every failed step
   -h, --help        Show this help
 
@@ -115,6 +121,15 @@ parse_args() {
                 ;;
             --host-preflight)
                 RUN_HOST_PREFLIGHT=1
+                shift
+                ;;
+            --migration-workflow)
+                RUN_MIGRATION_WORKFLOW=1
+                shift
+                ;;
+            --migration-rollback)
+                RUN_MIGRATION_ROLLBACK=1
+                RUN_MIGRATION_WORKFLOW=1
                 shift
                 ;;
             --keep-going)
@@ -247,6 +262,8 @@ mode_label() {
     [ "$RUN_DNS_SMOKE" -eq 1 ] && label="$label +dns-smoke"
     [ "$RUN_BLACKLIST_FIXTURES" -eq 1 ] && label="$label +blacklist-fixtures"
     [ "$RUN_HOST_PREFLIGHT" -eq 1 ] && label="$label +host-preflight"
+    [ "$RUN_MIGRATION_WORKFLOW" -eq 1 ] && label="$label +migration-workflow"
+    [ "$RUN_MIGRATION_ROLLBACK" -eq 1 ] && label="$label +migration-rollback"
 
     printf '%s\n' "$label"
 }
@@ -270,6 +287,7 @@ bash_syntax_checks() {
 scripts/compose-amnezia.sh
 scripts/check-host.sh
 scripts/enable-docker-ipv6.sh
+scripts/obscura.sh
 scripts/externalize-amnezia-awg.sh
 scripts/externalize-amnezia-socks5proxy.sh
 scripts/externalize-amnezia-xray.sh
@@ -285,6 +303,7 @@ scripts/test-awg-host.sh
 scripts/test-awg-migration.sh
 scripts/test-blacklist-fixtures.sh
 scripts/test-dns-smoke.sh
+scripts/test-migration-workflow.sh
 scripts/test-socks5proxy-host.sh
 scripts/test-socks5proxy-compat.sh
 scripts/test-xray-host.sh
@@ -297,6 +316,7 @@ socks5proxy/entrypoint.sh
 socks5proxy/healthcheck.sh
 xray/entrypoint.sh
 xray/healthcheck.sh
+scripts/lib/migration.sh
 EOF
 
     if [ "$scripts_found" -eq 0 ]; then
@@ -458,6 +478,10 @@ host_preflight_test() {
     run_step "Host preflight" bash scripts/check-host.sh
 }
 
+migration_workflow_tests() {
+    run_step "Migration workflow fixtures" bash scripts/test-migration-workflow.sh
+}
+
 main() {
     parse_args "$@"
     validate_timeout
@@ -498,6 +522,10 @@ main() {
 
     if [ "$RUN_HOST_PREFLIGHT" -eq 1 ]; then
         host_preflight_test
+    fi
+
+    if [ "$RUN_MIGRATION_WORKFLOW" -eq 1 ]; then
+        migration_workflow_tests
     fi
 
     print_summary
