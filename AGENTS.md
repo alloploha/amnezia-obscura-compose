@@ -20,7 +20,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.19.0`
+Current project version: `0.19.1`
 
 Version file:
 - the repository root contains `VERSION`
@@ -588,9 +588,18 @@ Important scripts:
 - `scripts/install-docker-compose.sh`
 - `scripts/enable-docker-ipv6.sh`
 - `scripts/compose-amnezia.sh`
+- `scripts/test-all.sh`
 - `scripts/externalize-amnezia-socks5proxy.sh`
 - `scripts/test-socks5proxy-host.sh`
 - blacklist install, refresh, and uninstall wrappers
+
+Validation entrypoint:
+- `scripts/test-all.sh` is the canonical repo-level validation gate for local pre-commit and pre-release checks
+- default mode runs static checks, Bash syntax checks, and Compose config rendering
+- `--docker` adds Docker daemon build checks for implemented services
+- `--e2e` runs host-side checks for already-running optional services and skips absent services clearly
+- `--awg-migration` runs the throwaway-container AWG migration E2E test
+- `--awg-tunnel` runs the AWG migration E2E test with real tunnel packet flow where `/dev/net/tun` is available
 
 The preferred pattern is:
 - Python core or declarative Compose logic for real behavior

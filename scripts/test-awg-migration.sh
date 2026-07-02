@@ -102,7 +102,12 @@ cleanup() {
 
     if [ "$KEEP_ARTIFACTS" -eq 0 ]; then
         docker rm -f "$CLIENT_CONTAINER" "$TARGET_CONTAINER" "$SOURCE_CONTAINER" >/dev/null 2>&1 || true
-        old_container_ids="$(docker ps -aq --filter "name=^/${SOURCE_CONTAINER}-old-" 2>/dev/null || true)"
+        old_container_ids="$(
+            docker ps -a \
+                --filter "name=${SOURCE_CONTAINER}-old-" \
+                --format '{{.ID}} {{.Names}}' 2>/dev/null \
+                | awk -v prefix="${SOURCE_CONTAINER}-old-" '$2 ~ "^" prefix { print $1 }'
+        )"
         if [ -n "$old_container_ids" ]; then
             docker rm -f $old_container_ids >/dev/null 2>&1 || true
         fi

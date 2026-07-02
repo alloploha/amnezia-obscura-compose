@@ -4,7 +4,7 @@ Obscura is a Docker Compose based, Amnezia-compatible server-side deployment lay
 
 Russian version: [README.ru.md](README.ru.md)
 
-Current project version: `0.19.0`
+Current project version: `0.19.1`
 
 Obscura is not a fork of the Amnezia app.
 It is a separate project that aims to make the server side easier to run and manage directly with Docker Compose.
@@ -81,6 +81,26 @@ docker compose ps
 ```
 
 This starts the current default service set, which is the DNS resolver.
+
+## Validation
+
+Run the default repository validation gate:
+
+```bash
+bash scripts/test-all.sh
+```
+
+Include Docker builds and Compose checks that require the Docker daemon:
+
+```bash
+bash scripts/test-all.sh --docker
+```
+
+Run AWG migration validation, including the optional tunnel packet-flow test:
+
+```bash
+bash scripts/test-all.sh --docker --awg-tunnel
+```
 
 ## Optional Features
 
