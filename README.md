@@ -1,62 +1,49 @@
 # Obscura
 
-Obscura is a Docker Compose based, Amnezia-compatible server-side deployment layer for self-hosted VPN infrastructure.
+Obscura is a Docker Compose based server-side toolkit for self-hosted VPN infrastructure.
+It is compatible with some Amnezia server layouts, but it is not a fork of the Amnezia app.
 
 Russian version: [README.ru.md](README.ru.md)
 
-Current project version: `0.21.0`
+Current project version: `0.21.1`
 
-Obscura is not a fork of the Amnezia app.
-It is a separate project that aims to make the server side easier to run and manage directly with Docker Compose.
+## What This Is
 
-## Main Goal
+Amnezia is usually managed by its desktop or mobile client, which connects to a server and creates containers there.
+Obscura is for people who want more direct control over that server side with ordinary Docker Compose commands.
 
-The long-term goal is to turn Amnezia-style server deployments into a Compose-native backend with:
-- better Docker integration
-- easier direct server management
-- side-by-side compatibility with vanilla Amnezia
-- durable Compose services for DNS and VPN components
+In practical terms, Obscura helps you:
+- run a private DNS resolver for containers and VPN-related services
+- optionally run SOCKS5, AWG, and Xray services from Compose
+- keep useful compatibility with existing Amnezia server data
+- inspect and migrate supported Amnezia service state more safely
+- add optional host-side blacklist rules for Docker container traffic
 
-In the future, that should include protocol services such as WireGuard, AWG, Xray, OpenVPN, and IPsec.
+You do not need to understand all internal protocol details to try it.
+You should be comfortable using a Linux shell, Docker, and `sudo`.
 
-## What It Can Do Today
+## What Works Today
 
-Today Obscura provides:
-- a private DNS resolver based on Unbound
-- an optional SOCKS5 proxy module based on 3proxy
-- an early optional AWG profile with userspace AmneziaWG, persistent server state, client export tooling, and side-by-side Amnezia key compatibility
-- an early optional Xray profile with persistent server state, client management, migration tooling, and side-by-side Amnezia compatibility
-- an optional host-side blacklist tool for blocking unwanted container egress
+Implemented:
+- private DNS resolver based on Unbound
+- optional SOCKS5 proxy
+- optional AWG service
+- optional Xray service
+- optional host-side blacklist tool
+- safe migration wrapper for supported Amnezia AWG, Xray, and SOCKS5 state
 
-The full VPN stack is still planned work.
-Today the project is best understood as DNS plus supporting groundwork.
-
-## Why This Project Exists
-
-Vanilla Amnezia is good at provisioning containers through its client UI, but its server-side workflow is largely driven by SSH scripts and one-off container actions.
-
-Obscura moves in a different direction:
-- Compose-managed services instead of ad hoc `docker run`
-- clearer files, networks, and volumes
-- easier command-line administration
-- practical compatibility with existing Amnezia setups where useful
-
-## Common Use Cases
-
-- Run a private DNS resolver for containers or a VPN server host.
-- Add an optional SOCKS5 proxy to the same stack.
-- Run Obscura next to a vanilla Amnezia installation instead of replacing it.
-- Add optional host-side blacklist rules for Docker container traffic.
+Still planned:
+- Compose services for WireGuard, OpenVPN, IPsec, and other VPN protocols
+- broader real-host validation across more Linux and Docker firewall setups
 
 ## Requirements
 
-- Linux host
+- Linux server or Linux-like Docker host
 - Docker Engine
 - Docker Compose plugin
-- root access for setup tasks
+- `sudo` access for setup, migration, and host-side networking tasks
 
-Docker IPv6 support is optional.
-If IPv6 is disabled, the current services can still work over IPv4.
+IPv6 support in Docker is useful but not required for basic IPv4 operation.
 
 ## Quick Start
 
@@ -67,10 +54,16 @@ git clone --recurse-submodules https://github.com/alloploha/amnezia-obscura-comp
 cd amnezia-obscura-compose
 ```
 
-If `docker compose` is missing on a Debian or Ubuntu based host:
+If `docker compose` is missing on Debian or Ubuntu:
 
 ```bash
 sudo bash scripts/install-docker-compose.sh
+```
+
+Check whether the host looks ready:
+
+```bash
+bash scripts/check-host.sh
 ```
 
 Start the default stack:
@@ -80,96 +73,80 @@ docker compose up -d --build
 docker compose ps
 ```
 
-This starts the current default service set, which is the DNS resolver.
+The default stack starts the DNS resolver.
 
-## Validation
+## Optional Services
 
-Run the default repository validation gate:
-
-```bash
-bash scripts/test-all.sh
-```
-
-Include Docker builds and Compose checks that require the Docker daemon:
-
-```bash
-bash scripts/test-all.sh --docker
-```
-
-Run AWG migration validation, including the optional tunnel packet-flow test:
-
-```bash
-bash scripts/test-all.sh --docker --awg-tunnel
-```
-
-Run additional compatibility and smoke validation:
-
-```bash
-bash scripts/test-all.sh --xray-migration
-bash scripts/test-all.sh --socks5-compat
-bash scripts/test-all.sh --dns-smoke
-bash scripts/test-all.sh --blacklist-fixtures
-bash scripts/test-all.sh --migration-workflow
-```
-
-Check whether a host is ready for Obscura:
-
-```bash
-bash scripts/check-host.sh
-```
-
-## Safe Amnezia Migration Workflow
-
-For AWG, Xray, and SOCKS5, use the top-level wrapper to inspect, snapshot, migrate, verify, or roll back existing Amnezia state:
-
-```bash
-sudo bash scripts/obscura.sh migrate audit --service all
-sudo bash scripts/obscura.sh migrate snapshot --service xray
-sudo bash scripts/obscura.sh migrate migrate --service xray --target-container obscura-xray-1
-sudo bash scripts/obscura.sh migrate verify --service xray
-sudo bash scripts/obscura.sh migrate rollback --service xray --snapshot /srv/obscura/backups/amnezia-migration/<timestamp>
-```
-
-The wrapper creates timestamped snapshots under `/srv/obscura/backups/amnezia-migration` by default and does not print key material.
-Mutating actions ask for confirmation unless `--yes` is passed.
-Use `--dry-run` before running a live migration.
-
-## Optional Features
-
-Enable the SOCKS5 proxy profile:
+Start SOCKS5:
 
 ```bash
 docker compose --profile socks5proxy up -d --build
 ```
 
-Enable the early Xray profile:
+Start Xray:
 
 ```bash
 docker compose --profile xray up -d --build
 ```
 
-This currently gives you a Compose-managed Xray service with generated persistent server state.
-When used with the Amnezia overlay and an externalized `/srv/amnezia/xray`, it can reuse Amnezia-managed Xray clients and key material while keeping Obscura-specific instance settings separate.
-For that side-by-side mode, the host also needs the `amnezia-dns-net` Docker network that vanilla Amnezia normally creates.
-If you publish Xray on a different host port, the helper scripts export client configs with that published port automatically.
-
-Enable the early AWG profile:
+Start AWG:
 
 ```bash
 docker compose --profile awg up -d --build
 ```
 
-This uses `amneziawg-go` inside the container, so it requires `/dev/net/tun` and `NET_ADMIN` but does not require the Amnezia kernel module, `--privileged`, `SYS_MODULE`, or host `/lib/modules`.
-The service stores state in `awg-data` by default and exposes an Amnezia-style view under `/opt/amnezia/awg`.
-With the Amnezia overlay and an externalized `/srv/amnezia/awg`, it can reuse Amnezia-generated server keys and imported peer public keys while keeping Obscura's runtime config local.
-Imported clients without private keys are tracked as non-exportable.
-The AWG helper scripts support client add/list/remove/export, externalizing a live Amnezia AWG container, importing Amnezia AWG state, and running host or migration validation.
+AWG needs `/dev/net/tun` and Docker `NET_ADMIN` support on the host.
+Run `bash scripts/check-host.sh` first if you are not sure.
 
-Use the Amnezia compatibility overlay:
+## Working Alongside Amnezia
+
+Obscura can run next to an existing Amnezia installation for supported services.
+For that mode, use the Amnezia Compose overlay:
 
 ```bash
 ./scripts/compose-amnezia.sh
 ```
+
+Before migrating any live Amnezia state, inspect and snapshot it:
+
+```bash
+sudo bash scripts/obscura.sh migrate audit --service all
+sudo bash scripts/obscura.sh migrate snapshot --service xray
+```
+
+Then use a dry run before a real migration:
+
+```bash
+sudo bash scripts/obscura.sh migrate migrate --service xray --target-container obscura-xray-1 --dry-run
+```
+
+The migration wrapper creates backups under `/srv/obscura/backups/amnezia-migration` by default and avoids printing key material.
+
+## Validation
+
+Run the default repository checks:
+
+```bash
+bash scripts/test-all.sh
+```
+
+Run Docker build checks:
+
+```bash
+bash scripts/test-all.sh --docker
+```
+
+Run extra checks when needed:
+
+```bash
+bash scripts/test-all.sh --xray-migration
+bash scripts/test-all.sh --socks5-compat
+bash scripts/test-all.sh --migration-workflow
+```
+
+Some checks need Docker access and may take several minutes.
+
+## Blacklist Tool
 
 Install the optional blacklist module:
 
@@ -177,7 +154,7 @@ Install the optional blacklist module:
 sudo sh scripts/install-blacklist.sh
 ```
 
-Refresh blacklist rules after editing installed source files:
+Refresh installed blacklist rules:
 
 ```bash
 sudo sh scripts/refresh-blacklist.sh
@@ -189,10 +166,7 @@ Remove blacklist systemd integration:
 sudo sh scripts/uninstall-blacklist.sh
 ```
 
-## Where To Look Next
+## More Details
 
-- General technical and architecture notes: `AGENTS.md`
-- Blacklist module user guide: `blacklist/README.md`
-- Blacklist module technical guide: `blacklist/AGENTS.md`
-
-If you want the current implementation details, compatibility notes, or agent-facing technical guidance, use `AGENTS.md`.
+For deeper technical details, architecture, compatibility rules, and AI-agent guidance, read [AGENTS.md](AGENTS.md).
+For blacklist-specific user documentation, read [blacklist/README.md](blacklist/README.md).

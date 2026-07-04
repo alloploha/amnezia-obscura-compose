@@ -1,62 +1,49 @@
 # Obscura
 
-Obscura — это совместимый с Amnezia серверный слой развертывания для собственной VPN-инфраструктуры на основе Docker Compose.
+Obscura — это серверный набор инструментов на базе Docker Compose для собственной VPN-инфраструктуры.
+Он совместим с некоторыми серверными структурами данных Amnezia, но не является форком приложения Amnezia.
 
 Английская версия: [README.md](README.md)
 
-Текущая версия проекта: `0.21.0`
+Текущая версия проекта: `0.21.1`
 
-Obscura не является форком приложения Amnezia.
-Это отдельный проект, цель которого — сделать серверную часть проще для запуска и управления напрямую через Docker Compose.
+## Что Это Такое
 
-## Главная Цель
+Обычно Amnezia управляется через настольный или мобильный клиент, который подключается к серверу и создает там контейнеры.
+Obscura предназначена для тех, кто хочет управлять серверной частью напрямую через обычные Docker Compose команды.
 
-Долгосрочная цель проекта — превратить серверные развертывания в стиле Amnezia в Compose-native backend с:
-- лучшей интеграцией с Docker
-- более простым прямым управлением сервером
-- возможностью работать рядом с обычной Amnezia
-- постоянными Compose-сервисами для DNS и VPN-компонентов
+На практике Obscura помогает:
+- запустить приватный DNS-резолвер для контейнеров и VPN-сервисов
+- при необходимости запустить SOCKS5, AWG и Xray из Compose
+- сохранить полезную совместимость с существующими серверными данными Amnezia
+- безопаснее проверять и мигрировать поддерживаемое состояние сервисов Amnezia
+- добавить необязательные blacklist-правила на хосте для Docker-трафика контейнеров
 
-В будущем сюда должны входить сервисы протоколов WireGuard, AWG, Xray, OpenVPN и IPsec.
+Чтобы попробовать проект, не нужно понимать все внутренние детали протоколов.
+Но нужно уверенно пользоваться Linux shell, Docker и `sudo`.
 
 ## Что Уже Работает
 
-Сейчас Obscura предоставляет:
+Реализовано:
 - приватный DNS-резолвер на базе Unbound
-- необязательный SOCKS5-прокси на базе 3proxy
-- ранний необязательный профиль AWG с userspace AmneziaWG, постоянным серверным состоянием, экспортом клиентских конфигов и side-by-side совместимостью по ключам Amnezia
-- ранний необязательный профиль Xray с постоянным серверным состоянием, управлением клиентами, миграционными инструментами и совместимостью для side-by-side работы с Amnezia
-- необязательный хостовый модуль blacklist для блокировки нежелательного исходящего трафика контейнеров
+- необязательный SOCKS5-прокси
+- необязательный AWG-сервис
+- необязательный Xray-сервис
+- необязательный хостовый blacklist-инструмент
+- безопасная команда миграции для поддерживаемого состояния Amnezia AWG, Xray и SOCKS5
 
-Полный VPN-стек пока еще не реализован.
-На текущем этапе проект правильнее воспринимать как DNS и задел под дальнейшее развитие.
-
-## Зачем Нужен Этот Проект
-
-Обычная Amnezia хорошо поднимает контейнеры через свой клиент, но серверная часть там в основном построена вокруг SSH-скриптов и одноразовых действий с контейнерами.
-
-Obscura идет в другом направлении:
-- Compose-управляемые сервисы вместо разовых `docker run`
-- более понятные файлы, сети и тома
-- более простое администрирование из командной строки
-- практическая совместимость с существующими установками Amnezia там, где это действительно полезно
-
-## Основные Сценарии Использования
-
-- Запустить приватный DNS-резолвер для контейнеров или VPN-сервера.
-- Добавить к тому же стеку необязательный SOCKS5-прокси.
-- Запускать Obscura рядом с обычной Amnezia, а не вместо нее.
-- Добавить необязательные blacklist-правила на хосте для Docker-трафика контейнеров.
+Пока запланировано:
+- Compose-сервисы для WireGuard, OpenVPN, IPsec и других VPN-протоколов
+- более широкая проверка на реальных Linux-хостах и разных настройках межсетевого экрана Docker
 
 ## Требования
 
-- Linux-хост
+- Linux-сервер или Docker-хост с Linux-окружением
 - Docker Engine
-- плагин Docker Compose
-- root-доступ для задач установки
+- Docker Compose plugin
+- `sudo` доступ для установки, миграции и сетевых задач на хосте
 
-Поддержка IPv6 в Docker необязательна.
-Если IPv6 отключен, текущие сервисы все равно могут работать по IPv4.
+Поддержка IPv6 в Docker полезна, но не обязательна для базовой работы по IPv4.
 
 ## Быстрый Старт
 
@@ -67,10 +54,16 @@ git clone --recurse-submodules https://github.com/alloploha/amnezia-obscura-comp
 cd amnezia-obscura-compose
 ```
 
-Если на Debian- или Ubuntu-подобном хосте отсутствует `docker compose`:
+Если на Debian или Ubuntu нет `docker compose`:
 
 ```bash
 sudo bash scripts/install-docker-compose.sh
+```
+
+Проверьте готовность хоста:
+
+```bash
+bash scripts/check-host.sh
 ```
 
 Запустите стек по умолчанию:
@@ -80,119 +73,100 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Это запускает текущий набор сервисов по умолчанию, то есть DNS-резолвер.
+Стек по умолчанию запускает DNS-резолвер.
 
-## Проверка
+## Дополнительные Сервисы
 
-Запустить стандартный validation gate репозитория:
-
-```bash
-bash scripts/test-all.sh
-```
-
-Добавить Docker build и Compose-проверки, которым нужен Docker daemon:
-
-```bash
-bash scripts/test-all.sh --docker
-```
-
-Запустить проверку миграции AWG, включая необязательный tunnel packet-flow test:
-
-```bash
-bash scripts/test-all.sh --docker --awg-tunnel
-```
-
-Запустить дополнительные compatibility- и smoke-проверки:
-
-```bash
-bash scripts/test-all.sh --xray-migration
-bash scripts/test-all.sh --socks5-compat
-bash scripts/test-all.sh --dns-smoke
-bash scripts/test-all.sh --blacklist-fixtures
-bash scripts/test-all.sh --migration-workflow
-```
-
-Проверить готовность хоста для Obscura:
-
-```bash
-bash scripts/check-host.sh
-```
-
-## Безопасная Миграция Из Amnezia
-
-Для AWG, Xray и SOCKS5 используйте верхнеуровневый wrapper, чтобы проверить, сделать snapshot, выполнить миграцию, проверить результат или откатить состояние Amnezia:
-
-```bash
-sudo bash scripts/obscura.sh migrate audit --service all
-sudo bash scripts/obscura.sh migrate snapshot --service xray
-sudo bash scripts/obscura.sh migrate migrate --service xray --target-container obscura-xray-1
-sudo bash scripts/obscura.sh migrate verify --service xray
-sudo bash scripts/obscura.sh migrate rollback --service xray --snapshot /srv/obscura/backups/amnezia-migration/<timestamp>
-```
-
-По умолчанию wrapper создает timestamped snapshots в `/srv/obscura/backups/amnezia-migration` и не печатает ключевой материал.
-Mutating-действия требуют подтверждения, если не передан `--yes`.
-Перед живой миграцией используйте `--dry-run`.
-
-## Дополнительные Возможности
-
-Включить профиль SOCKS5-прокси:
+Запустить SOCKS5:
 
 ```bash
 docker compose --profile socks5proxy up -d --build
 ```
 
-Включить ранний профиль Xray:
+Запустить Xray:
 
 ```bash
 docker compose --profile xray up -d --build
 ```
 
-Сейчас это дает Compose-управляемый Xray-сервис с генерацией постоянного серверного состояния.
-При использовании overlay для Amnezia и externalized `/srv/amnezia/xray` сервис может повторно использовать Xray-клиентов и ключевой материал, которыми управляет Amnezia, при этом Obscura-специфичные параметры экземпляра остаются отдельными.
-Для такого side-by-side режима на хосте также должна существовать Docker-сеть `amnezia-dns-net`, которую обычно создает сама vanilla Amnezia.
-Если Xray опубликован на другом внешнем порту, helper-скрипты автоматически подставляют именно этот опубликованный порт в клиентские конфиги.
-
-Включить ранний профиль AWG:
+Запустить AWG:
 
 ```bash
 docker compose --profile awg up -d --build
 ```
 
-Этот сервис использует `amneziawg-go` внутри контейнера, поэтому ему нужны `/dev/net/tun` и `NET_ADMIN`, но не нужны Amnezia kernel module, `--privileged`, `SYS_MODULE` или хостовый `/lib/modules`.
-По умолчанию состояние хранится в `awg-data`, а Amnezia-совместимое представление доступно в `/opt/amnezia/awg`.
-При использовании overlay для Amnezia и externalized `/srv/amnezia/awg` сервис может повторно использовать Amnezia-сгенерированные серверные ключи и импортированные публичные ключи peers, сохраняя runtime-конфиг Obscura локальным.
-Импортированные клиенты без приватных ключей учитываются как non-exportable.
-AWG helper-скрипты поддерживают add/list/remove/export клиентов, externalize живого Amnezia AWG контейнера, import состояния Amnezia AWG, а также host- и migration-проверки.
+Для AWG на хосте нужны `/dev/net/tun` и поддержка Docker `NET_ADMIN`.
+Если вы не уверены, сначала запустите `bash scripts/check-host.sh`.
 
-Использовать overlay для совместимости с Amnezia:
+## Работа Рядом С Amnezia
+
+Obscura может работать рядом с существующей установкой Amnezia для поддерживаемых сервисов.
+Для такого режима используйте Compose overlay для Amnezia:
 
 ```bash
 ./scripts/compose-amnezia.sh
 ```
 
-Установить необязательный модуль blacklist:
+Перед миграцией live-состояния Amnezia сначала проверьте и сохраните snapshot:
+
+```bash
+sudo bash scripts/obscura.sh migrate audit --service all
+sudo bash scripts/obscura.sh migrate snapshot --service xray
+```
+
+Перед реальной миграцией выполните dry run:
+
+```bash
+sudo bash scripts/obscura.sh migrate migrate --service xray --target-container obscura-xray-1 --dry-run
+```
+
+По умолчанию migration wrapper создает backups в `/srv/obscura/backups/amnezia-migration` и не печатает ключевой материал.
+
+## Проверка
+
+Запустить стандартные проверки репозитория:
+
+```bash
+bash scripts/test-all.sh
+```
+
+Запустить проверки Docker-сборки:
+
+```bash
+bash scripts/test-all.sh --docker
+```
+
+Дополнительные проверки при необходимости:
+
+```bash
+bash scripts/test-all.sh --xray-migration
+bash scripts/test-all.sh --socks5-compat
+bash scripts/test-all.sh --migration-workflow
+```
+
+Некоторым проверкам нужен доступ к Docker, и они могут выполняться несколько минут.
+
+## Blacklist Tool
+
+Установить необязательный blacklist-модуль:
 
 ```bash
 sudo sh scripts/install-blacklist.sh
 ```
 
-Обновить blacklist-правила после изменения установленных source-файлов:
+Обновить установленные blacklist-правила:
 
 ```bash
 sudo sh scripts/refresh-blacklist.sh
 ```
 
-Удалить systemd-интеграцию blacklist-модуля:
+Удалить systemd-интеграцию blacklist:
 
 ```bash
 sudo sh scripts/uninstall-blacklist.sh
 ```
 
-## Куда Смотреть Дальше
+## Где Читать Подробности
 
-- Общие технические и архитектурные заметки: `AGENTS.md`
-- Пользовательская документация blacklist-модуля: `blacklist/README.md`
-- Техническая документация blacklist-модуля: `blacklist/AGENTS.md`
-
-Если вам нужны детали текущей реализации, заметки по совместимости или технические инструкции для AI Agents, используйте `AGENTS.md`.
+Более глубокие технические детали, архитектура, правила совместимости и инструкции для AI agents находятся в [AGENTS.md](AGENTS.md).
+Пользовательская документация blacklist-модуля находится в [blacklist/README.md](blacklist/README.md).

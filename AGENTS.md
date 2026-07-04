@@ -13,6 +13,9 @@ Future AI agents should start here before making changes.
 - `README.md` should stay compact, practical, and use-case oriented.
 - `README.md` should explain what Obscura is, why it exists, what works today, and how a non-expert user can try it.
 - `README.md` should not carry detailed implementation notes, internal architecture rules, compatibility debt, or agent directives.
+- `README.md` audience is a person with light IT knowledge who can use a Linux shell and Docker but should not need to understand Obscura internals.
+- Keep `README.md` wording concrete and operational: what the project is, what is implemented, requirements, first commands, common workflows, and where to get more details.
+- Move protocol internals, exact state ownership, compatibility limitations, migration mechanics, network constants, and deferred work details into this file instead of the README.
 - This file owns technical implementation notes, architecture, constraints, compatibility rules, deferred cleanup records, and AI-helper directives.
 - If `README.md` or this file changes meaningfully, update the other one in the same work whenever feasible so they stay aligned.
 - Do not let user-facing docs drift away from code or from the canonical repo state described here.
@@ -20,7 +23,7 @@ Future AI agents should start here before making changes.
 ## Project Identity
 
 Project name: Obscura
-Current project version: `0.21.0`
+Current project version: `0.21.1`
 
 Version file:
 - the repository root contains `VERSION`
